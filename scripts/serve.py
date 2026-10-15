@@ -12,6 +12,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import os
+import re
 import sys
 from functools import partial
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -43,20 +44,74 @@ def is_loopback_host(host: str) -> bool:
         return False
 
 
-def proxy_target_allowed(target: str) -> bool:
-    """https anywhere, http only on loopback.
+# Namespaces that are private by definition. A public name cannot end in one
+# of these, so adding them does not widen the rule for the public internet.
+# `.ts.net` is Tailscale's MagicDNS domain; the rest are the conventional
+# local ones.
+_PRIVATE_SUFFIX = re.compile(r"\.(ts\.net|local|lan|home|internal)$")
 
-    The https rule exists so an API key never crosses the network in clear.
-    A loopback target never crosses the network: the operator is running the
-    model on their own machine (Ollama on 127.0.0.1:11434, LM Studio,
-    llama.cpp), so refusing it only broke the local-first setup this client is
-    built around. Everything that is not loopback still has to be https.
+# There is deliberately no "bare label" rule here (a single name with no dot,
+# the shape a tailnet box answers to as `box`), for the same two reasons as
+# desktop/proxy-target.js: a bare label resolves through the local resolver's
+# search domain, so on a network that hands out an attacker-controlled one
+# `box` becomes `box.attacker.example` and the API key leaves in clear; and
+# WHATWG URL reads an empty authority as a host, so `http:///nohost` would
+# turn a previously refused input into an allowed one. Use the qualified
+# `box.tailnet-name.ts.net` form, which the suffix rule admits.
+
+
+def is_private_http_host(host: str) -> bool:
+    """True for a host that is provably not on the public internet.
+
+    Loopback (issue #5: Ollama et al. serve plain http on 127.0.0.1), plus
+    the shapes a self-hosted box on a Tailscale tailnet answers to, because
+    refusing those broke the setup this client is pointed at while the
+    property the https rule protects — no API key in clear over a public
+    network — is untouched by any of them:
+
+      - CGNAT 100.64.0.0/10, where Tailscale hands out v4 addresses
+      - IPv6 unique-local fc00::/7, the v6 equivalent
+      - names that cannot be public: a single label with no dot, or an
+        explicit private suffix
+
+    Public DNS requires a TLD, so a name with no dot can only come from the
+    local resolver (MagicDNS, mDNS, a search domain); `evil.com` has a dot and
+    is still refused. A bare label that is all digits is refused too, because
+    `2130706433` is the packed spelling of 127.0.0.1 and must not slip past a
+    check that the dotted form fails. desktop/proxy-target.js carries the same
+    rule.
+    """
+    h = (host or "").strip().strip("[]").lower()
+    if not h:
+        return False
+    if h == "localhost":
+        return True
+    try:
+        ip = ipaddress.ip_address(h)
+    except ValueError:
+        # Not an IP: fall through to the name checks below.
+        pass
+    else:
+        if ip.is_loopback:
+            return True
+        if isinstance(ip, ipaddress.IPv4Address):
+            return ip in ipaddress.ip_network("100.64.0.0/10")
+        return ip in ipaddress.ip_network("fc00::/7")
+    if _PRIVATE_SUFFIX.search(h):
+        return True
+    return False
+
+
+def proxy_target_allowed(target: str) -> bool:
+    """https anywhere, http only on a host that is provably private.
+
+    See is_private_http_host for why the private set is wider than loopback.
     desktop/main.js and android/.../AssetServer.java carry the same rule.
     """
     parts = urlparse(target)
     if parts.scheme == "https":
         return True
-    return parts.scheme == "http" and is_loopback_host(parts.hostname)
+    return parts.scheme == "http" and is_private_http_host(parts.hostname or "")
 
 
 class Server(ThreadingHTTPServer):
