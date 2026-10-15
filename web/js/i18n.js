@@ -359,7 +359,9 @@
       'nav.menu': '菜单',
       'topbar.voiceMode': '语音 / 文本',
       'scene.place': '所在地',
-      'mode.label': '对话模式'
+      'mode.label': '对话模式',
+      'posture.tip': '坐下/站起',
+      'posture.variantTip': '盘腿坐/普通坐'
     },
 
     ja: {
@@ -714,7 +716,9 @@
       'nav.menu': 'メニュー',
       'topbar.voiceMode': '音声 / テキスト',
       'scene.place': '所在地',
-      'mode.label': '対話モード'
+      'mode.label': '対話モード',
+      'posture.tip': '座る/立つ',
+      'posture.variantTip': 'あぐら/普通座り'
     },
 
     en: {
@@ -1069,7 +1073,9 @@
       'nav.menu': 'Menu',
       'topbar.voiceMode': 'Voice / text',
       'scene.place': 'Location',
-      'mode.label': 'Mode'
+      'mode.label': 'Mode',
+      'posture.tip': 'Sit / stand',
+      'posture.variantTip': 'Cross-legged / normal sit'
     }
   };
 

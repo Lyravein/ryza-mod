@@ -28,6 +28,16 @@ NEW = {
         'ja': 'メニュー',
         'en': 'Menu',
     },
+    'posture.tip': {
+        'zh': '坐下/站起',
+        'ja': '座る/立つ',
+        'en': 'Sit / stand',
+    },
+    'posture.variantTip': {
+        'zh': '盘腿坐/普通坐',
+        'ja': 'あぐら/普通座り',
+        'en': 'Cross-legged / normal sit',
+    },
     'scene.place': {
         'zh': '所在地',
         'ja': '所在地',
