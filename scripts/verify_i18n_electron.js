@@ -52,7 +52,15 @@ const EXPR = `(function(){
   try {
     if (Config.section) Config.section('app').lang = "${LANG}";
     I18n.setLang("${LANG}");
-    if (window.App && App.applyI18n) App.applyI18n();
+    /* Replay the app's OWN language-change path, not a shortcut. In
+       App._openLangSheet the handler does exactly this sequence:
+         Config.set('app.lang', id); I18n.setLang(id);
+         App.applyI18n(document); App._relocalize();
+       Calling only applyI18n would skip _relocalize(), which is what writes
+       the #input placeholder — the previous version of this probe did that
+       and so tested a path the user never takes. */
+    if (window.App && App.applyI18n) App.applyI18n(document);
+    if (window.App && App._relocalize) App._relocalize();
   } catch (e) { return { stage: 'lang-switch-failed', err: e.message }; }
 
   var leaks = 0, samples = [];

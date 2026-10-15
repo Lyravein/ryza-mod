@@ -83,14 +83,24 @@ while ((m = re.exec(clean)) !== null) {
     const hasTextKey = /data-i18n="/.test(raw);
     const hasAttrKey = /data-i18n-(?:title|ph)="/.test(raw);
 
-    // A CJK tooltip or placeholder must always be wired, even on an element
-    // whose text the JS redraws.
-    const attrCjk = [...raw.matchAll(/(?:title|placeholder)="([^"]*[\u3000-\u9fff][^"]*)"/g)]
+    // A CJK tooltip must always be wired: it is the one attribute no
+    // runtime writer in app.js touches, so an unreachable CJK title is
+    // permanently wrong.
+    const attrCjk = [...raw.matchAll(/title="([^"]*[\u3000-\u9fff][^"]*)"/g)]
       .map(x => x[1].trim());
     if (attrCjk.length && !hasAttrKey) {
       failures.push(`line ${lineOf(m.index)}: ${id ? '#' + id : 'element'} ships a CJK ` +
-                    `tooltip/placeholder with no i18n attribute -> ` +
+                    `tooltip with no data-i18n-title -> ` +
                     attrCjk.slice(0, 2).map(s => JSON.stringify(s.slice(0, 30))).join(', '));
+    }
+
+    // A CJK placeholder is banned outright. #input is the only one, and
+    // app.js owns it via I18n.tc('input.hint'), so a Chinese literal here
+    // would flash before boot and, if the key ever went missing, stay.
+    const phCjk = /placeholder="[^"]*[\u3000-\u9fff][^"]*"/.exec(raw);
+    if (phCjk) {
+      failures.push(`line ${lineOf(m.index)}: ${id ? '#' + id : 'element'} has a CJK ` +
+                    `placeholder literal — the JS owns this attribute`);
     }
 
     // Only a TEXT key can fight a runtime text writer.
