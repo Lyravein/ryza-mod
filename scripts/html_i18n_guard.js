@@ -66,6 +66,24 @@ const NON_TEXT_ATTRS = new Set([
   'data-i18n', 'data-i18n-title', 'data-i18n-ph',
 ]);
 
+/*
+ * Attributes that data-i18n-title genuinely repairs, because applyI18n
+ * writes `title` and nothing else.
+ *
+ * This is the fix for a real hole: the guard used to accept ANY
+ * data-i18n-title as proof that a CJK attribute was handled. So CJK in
+ * alt="发送" was reported, the obvious remedy was to add data-i18n-title,
+ * and the guard then went green — while the alt value was still Chinese
+ * and still read aloud by a screen reader. The check passed without the
+ * defect going away, which is the same false confidence as the original
+ * untranslated-string bug.
+ *
+ * For anything outside this list there is no mechanism yet, so a CJK value
+ * must be a hard failure telling the author to extend applyI18n (or to
+ * stop putting prose there) rather than a hint to add a useless attribute.
+ */
+const TITLE_REPAIRABLE = new Set(['title']);
+
 const src = fs.readFileSync(HTML, 'utf8');
 
 /* Blank out comments WITHOUT touching newlines: replacing a multi-line
@@ -108,9 +126,24 @@ while ((m = re.exec(clean)) !== null) {
         failures.push(`line ${lineOf(m.index)}: ${id ? '#' + id : 'element'} has a CJK ` +
                       `placeholder literal — app.js owns this attribute -> ` +
                       JSON.stringify(val.slice(0, 30)));
-      } else if (!hasAttrKey) {
+      } else if (TITLE_REPAIRABLE.has(attr)) {
+        /* data-i18n-title really does fix this one: applyI18n writes the
+           title attribute. */
+        if (!hasAttrKey) {
+          failures.push(`line ${lineOf(m.index)}: ${id ? '#' + id : 'element'} ships CJK in ` +
+                        `"${attr}" with no data-i18n-title -> ` + JSON.stringify(val.slice(0, 30)));
+        }
+      } else {
+        /* No mechanism rewrites this attribute, so telling the author to
+           add data-i18n-title would be actively wrong: that attribute only
+           ever sets `title`, so the guard would turn green while the CJK
+           value stayed in the DOM. Verified by injecting alt="发送" and
+           adding the attribute the old message asked for: PASS, with the
+           Chinese alt still present. Fail instead, and say what to do. */
         failures.push(`line ${lineOf(m.index)}: ${id ? '#' + id : 'element'} ships CJK in ` +
-                      `"${attr}" with no data-i18n-title -> ` + JSON.stringify(val.slice(0, 30)));
+                      `"${attr}", which no i18n mechanism rewrites (applyI18n sets only ` +
+                      `title) -> ` + JSON.stringify(val.slice(0, 30)) +
+                      ` — extend applyI18n or drop the prose`);
       }
     }
 
