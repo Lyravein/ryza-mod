@@ -93,6 +93,12 @@
       (root || document).querySelectorAll('[data-i18n-title]').forEach(function (el) {
         el.setAttribute('title', I18n.t(el.getAttribute('data-i18n-title')));
       });
+      /* data-i18n-ph does the same for the placeholder attribute. The input
+         box had a hardcoded Chinese hint and was the only field in the app
+         that never changed with the UI language. */
+      (root || document).querySelectorAll('[data-i18n-ph]').forEach(function (el) {
+        el.setAttribute('placeholder', I18n.t(el.getAttribute('data-i18n-ph')));
+      });
     },
 
     _syncPanelFrac: function () {
