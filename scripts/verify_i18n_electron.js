@@ -23,6 +23,10 @@
  * output, which made a whole verification path look done when it was not.
  */
 const { app, BrowserWindow } = require('electron');
+/* Shared with scripts/html_i18n_guard.js so the two checks cannot drift.
+   require() resolves against this file, not the cwd, so this works even
+   though Electron must be launched from desktop/. */
+const { CJK_SOURCE, MATHS_SOURCE } = require('./lib/i18n_cjk.js');
 
 app.commandLine.appendSwitch('no-sandbox');
 app.disableHardwareAcceleration();
@@ -43,11 +47,12 @@ const killer = setTimeout(() => {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const EXPR = `(function(){
-  /* Same rule as scripts/html_i18n_guard.js: U+FF0B (＋) and U+FF0D (－)
-     are the fullwidth maths signs on the zoom buttons. They are icon glyphs,
-     not language, and stay the same in every locale. */
-  var MATHS = /[\\uFF0B\\uFF0D]/g;
-  var CJK = /[\\u3000-\\u303f\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uf900-\\ufaff\\uff01-\\uff5e]/;
+  /* Ranges come from scripts/lib/i18n_cjk.js, injected at build-free
+     runtime so this probe and html_i18n_guard.js can never disagree about
+     what counts as CJK. U+FF0B (＋) and U+FF0D (－) are the zoom buttons'
+     fullwidth maths signs: icon glyphs, not language. */
+  var MATHS = new RegExp(${JSON.stringify(MATHS_SOURCE)}, 'g');
+  var CJK = new RegExp(${JSON.stringify(CJK_SOURCE)});
   if (!window.I18n || !window.Config) return { stage: 'not-booted' };
   try {
     if (Config.section) Config.section('app').lang = "${LANG}";

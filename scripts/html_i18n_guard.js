@@ -13,16 +13,22 @@
  * scripts: with lang=en the app still showed ライザ and 离线重建版.
  *
  * This check works the other way round ("outside in"): scan index.html for
- * visible CJK text that is NOT attached to an i18n attribute, and fail.
+ * CJK that is NOT attached to an i18n attribute, and fail. CJK can hide in
+ * two places and both are covered:
+ *   - text nodes between tags
+ *   - ANY attribute value. An earlier version only looked at title and
+ *     placeholder while its comment claimed to cover attributes generally,
+ *     leaving aria-label, alt and data-* silently unchecked. A review
+ *     caught that gap; the attribute list is now a deny-list of the few
+ *     attributes that cannot hold prose, so new ones are covered by default.
  *
  * Two rules, kept separate on purpose:
  *   - data-i18n        rewrites the element's TEXT   -> conflicts with a
  *                        runtime text writer, so JS-owned elements must
  *                        NOT have it
- *   - data-i18n-title / data-i18n-ph rewrite an
- *                        ATTRIBUTE, which the runtime writers usually
- *                        leave alone -> always required when the markup
- *                        ships a CJK tooltip or placeholder, JS-owned or not
+ *   - data-i18n-title  rewrites an ATTRIBUTE, which
+ *                        the runtime writers usually leave alone -> always
+ *                        required when the markup ships a CJK tooltip
  *
  * Deliberately allowed: HTML comments, and the text of elements listed in
  * JS_OWNED (app.js redraws those from I18n keys on every render).
@@ -30,13 +36,14 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { CJK_SOURCE, MATHS, hasCjk } = require('./lib/i18n_cjk.js');
 
 const WEB = path.join(__dirname, '..', 'web');
 const HTML = path.join(WEB, 'index.html');
 
 /* Text app.js sets itself (via I18n.t/tc/tf) on every render, so a static
    data-i18n there would be overwritten a moment later. Their live output is
-   covered by the headless-Chrome probe. */
+   covered by scripts/verify_i18n_electron.js. */
 const JS_OWNED = new Set([
   'drawer-day',        // I18n.tf('drawer.days', …)
   'log-name',          // I18n.tc('chara.ryza', …)
@@ -48,15 +55,15 @@ const JS_OWNED = new Set([
   'hud-place', 'hud-tod', 'hud-mode',
 ]);
 
-/* CJK scripts, but NOT the fullwidth blocks wholesale: U+FF0B (＋) and
-   U+FF0D (－) are the maths signs used on the zoom buttons, and flagged as
-   "untranslated text" they would be pure noise. U+FF1A/U+FF08 etc. still
-   count, since those only appear in real prose. */
-/* CJK scripts. Fullwidth punctuation counts, since it only shows up in real
-   Chinese/Japanese prose — except the two maths signs on the zoom buttons,
-   U+FF0B (＋) and U+FF0D (－), which carry no language. */
-const MATHS_GLYPH = /[\uFF0B\uFF0D]/g;
-const CJK = /[\u3000-\u303f\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff01-\uff5e]/;
+/* Attributes that cannot hold user-facing prose. Everything else is
+   scanned, so a future aria-label / data-tip / alt with CJK fails here
+   instead of slipping through. */
+const NON_TEXT_ATTRS = new Set([
+  'class', 'id', 'type', 'name', 'rel', 'charset', 'content', 'src', 'href',
+  'width', 'height', 'accept', 'autocomplete', 'lang', 'style',
+  'data-action', 'data-bag', 'data-mode', 'data-style', 'data-view',
+  'data-i18n', 'data-i18n-title', 'data-i18n-ph',
+]);
 
 const src = fs.readFileSync(HTML, 'utf8');
 
@@ -72,38 +79,41 @@ const notes = [];
 
 /* Walk tags and the text between them, so every check has one clear owner. */
 const re = /<([a-zA-Z][^>]*)>|([^<]+)/g;
+const attrRe = /([a-zA-Z_:][\w:.-]*)\s*=\s*"([^"]*)"/g;
 let m, lastTag = null;
+
 while ((m = re.exec(clean)) !== null) {
   if (m[1] !== undefined) {
     const raw = m[1];
     const idm = /id="([^"]+)"/.exec(raw);
     const id = idm ? idm[1] : null;
     const owned = id && JS_OWNED.has(id);
-
     const hasTextKey = /data-i18n="/.test(raw);
-    const hasAttrKey = /data-i18n-(?:title|ph)="/.test(raw);
+    const hasAttrKey = /data-i18n-title="/.test(raw);
 
-    // A CJK tooltip must always be wired: it is the one attribute no
-    // runtime writer in app.js touches, so an unreachable CJK title is
-    // permanently wrong.
-    const attrCjk = [...raw.matchAll(/title="([^"]*[\u3000-\u9fff][^"]*)"/g)]
-      .map(x => x[1].trim());
-    if (attrCjk.length && !hasAttrKey) {
-      failures.push(`line ${lineOf(m.index)}: ${id ? '#' + id : 'element'} ships a CJK ` +
-                    `tooltip with no data-i18n-title -> ` +
-                    attrCjk.slice(0, 2).map(s => JSON.stringify(s.slice(0, 30))).join(', '));
+    /* Every attribute, not just the two the old version knew about. */
+    for (const a of raw.matchAll(attrRe)) {
+      const attr = a[1].toLowerCase();
+      const val = a[2].trim();
+      if (!val || NON_TEXT_ATTRS.has(attr)) continue;
+      if (!hasCjk(val)) continue;
+
+      if (attr === 'placeholder') {
+        /* #input is the only placeholder in the app and app.js owns it via
+           I18n.tc('input.hint') in three places (init, _relocalize, the
+           mode switch). A CJK literal here would show before boot and
+           would stay if that key ever went missing, so it is banned
+           outright rather than given an attribute. */
+        failures.push(`line ${lineOf(m.index)}: ${id ? '#' + id : 'element'} has a CJK ` +
+                      `placeholder literal — app.js owns this attribute -> ` +
+                      JSON.stringify(val.slice(0, 30)));
+      } else if (!hasAttrKey) {
+        failures.push(`line ${lineOf(m.index)}: ${id ? '#' + id : 'element'} ships CJK in ` +
+                      `"${attr}" with no data-i18n-title -> ` + JSON.stringify(val.slice(0, 30)));
+      }
     }
 
-    // A CJK placeholder is banned outright. #input is the only one, and
-    // app.js owns it via I18n.tc('input.hint'), so a Chinese literal here
-    // would flash before boot and, if the key ever went missing, stay.
-    const phCjk = /placeholder="[^"]*[\u3000-\u9fff][^"]*"/.exec(raw);
-    if (phCjk) {
-      failures.push(`line ${lineOf(m.index)}: ${id ? '#' + id : 'element'} has a CJK ` +
-                    `placeholder literal — the JS owns this attribute`);
-    }
-
-    // Only a TEXT key can fight a runtime text writer.
+    /* Only a TEXT key can fight a runtime text writer. */
     if (owned && hasTextKey) {
       failures.push(`line ${lineOf(m.index)}: #${id} text is written by app.js at runtime ` +
                     `but also carries data-i18n — two writers on one node`);
@@ -113,7 +123,7 @@ while ((m = re.exec(clean)) !== null) {
   }
 
   const text = m[2].trim();
-  if (!text || !CJK.test(text.replace(MATHS_GLYPH, ''))) continue;
+  if (!text || !hasCjk(text)) continue;
 
   if (lastTag && lastTag.owned) {
     notes.push(`line ${lineOf(m.index)}: #${lastTag.id} text left to app.js (expected)`);
@@ -126,8 +136,9 @@ while ((m = re.exec(clean)) !== null) {
                 (lastTag && lastTag.id ? ` (in #${lastTag.id})` : ''));
 }
 
-console.log('# index.html: visible CJK that is not wired to an i18n attribute');
-console.log(`  scanned ${clean.split('\n').length} lines`);
+console.log('# index.html: CJK not wired to an i18n attribute');
+console.log(`  ${clean.split('\n').length} lines; text nodes AND every attribute value`);
+console.log(`  ranges ${CJK_SOURCE}  (＋/－ exempt via lib/i18n_cjk.js)`);
 for (const n of notes) console.log('  note ' + n);
 if (failures.length) {
   console.log('');
