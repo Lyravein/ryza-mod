@@ -69,7 +69,11 @@ const EXPR = `(function(){
   } catch (e) { return { stage: 'lang-switch-failed', err: e.message }; }
 
   var leaks = 0, samples = [];
-  document.querySelectorAll('[data-i18n],[data-i18n-title],[data-i18n-ph]').forEach(function (el) {
+  /* Every element that carries a translation hook. data-i18n-ph is NOT
+     here: that attribute was removed from the markup on purpose (#input is
+     owned by app.js), and querying for it would silently match nothing and
+     make the probe look like it covers a case it does not. */
+  document.querySelectorAll('[data-i18n],[data-i18n-title]').forEach(function (el) {
     ['textContent', 'title', 'placeholder'].forEach(function (prop) {
       var v = (prop === 'textContent' ? el.textContent : el.getAttribute(prop)) || '';
       v = v.replace(MATHS, '').trim();

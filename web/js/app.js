@@ -89,20 +89,14 @@
       });
       /* data-i18n-title sets the tooltip (title attr) rather than the text —
          used where a button already shows an icon or short label but wants a
-         longer hover hint. */
-      (root || document).querySelectorAll('[data-i18n-title]').forEach(function (el) {
-        el.setAttribute('title', I18n.t(el.getAttribute('data-i18n-title')));
-      });
-      /* data-i18n-title sets the tooltip (title attr) rather than the text —
-         used where a button already shows an icon or short label but wants a
          longer hover hint.
 
          There is deliberately no placeholder equivalent. #input's hint is
          owned by app.js, which writes inpEl.placeholder from
          I18n.tc('input.hint') in three places (init, _relocalize, the mode
          switch). A data-i18n-ph pass here would be silently overwritten by
-         the very next line of init(), so the attribute was removed from the
-         markup rather than left in as a second, dead writer. */
+         the very next line of init(), so that attribute was removed from
+         the markup rather than left in as a second, dead writer. */
       (root || document).querySelectorAll('[data-i18n-title]').forEach(function (el) {
         el.setAttribute('title', I18n.t(el.getAttribute('data-i18n-title')));
       });

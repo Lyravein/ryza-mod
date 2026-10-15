@@ -56,8 +56,9 @@ const JS_OWNED = new Set([
 ]);
 
 /* Attributes that cannot hold user-facing prose. Everything else is
-   scanned, so a future aria-label / data-tip / alt with CJK fails here
-   instead of slipping through. */
+   scanned, including aria-label, alt and any future data-* hint, so a new
+   attribute is covered by default rather than needing a new rule. Only add
+   to this list if the value is provably never shown or read out. */
 const NON_TEXT_ATTRS = new Set([
   'class', 'id', 'type', 'name', 'rel', 'charset', 'content', 'src', 'href',
   'width', 'height', 'accept', 'autocomplete', 'lang', 'style',
