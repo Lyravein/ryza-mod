@@ -58,6 +58,41 @@ sandbox.document = {
   addEventListener() {}, body: fakeEl, documentElement: fakeEl
 };
 
+/* The clone button reads local samples through fetch() and posts a FormData.
+   Neither exists in node, so the test records what was appended instead of
+   encoding it: an Entry records field order too, which is worth asserting on
+   when a server sniffs the first file part. */
+function FakeFormData() { this.entries = []; this._names = {}; }
+FakeFormData.prototype.append = function (name, value, filename) {
+  const e = { name: String(name), value, filename: filename || null };
+  this.entries.push(e);
+  (this._names[e.name] = this._names[e.name] || []).push(e);
+  return e;
+};
+FakeFormData.prototype.getAll = function (name) { return this._names[name] || []; };
+FakeFormData.prototype.get = function (name) { return (this._names[name] || [])[0] || null; };
+FakeFormData.prototype.has = function (name) { return !!this._names[name]; };
+sandbox.FormData = FakeFormData;
+sandbox.Blob = function Blob(parts, opts) {
+  this.parts = parts || []; this.type = (opts && opts.type) || '';
+  this.size = (parts && parts[0] && parts[0].size) || 1024;
+};
+/* Sends back a File for every sample URL; host marks individual paths as
+   unusable to build the "no local samples" case. */
+const fetchFail = {};
+sandbox.fetch = function (url, opts) {
+  const u = String(url);
+  return Promise.resolve({
+    ok: !fetchFail[u], status: fetchFail[u] ? 404 : 200, url: u,
+    blob() {
+      if (fetchFail[u]) return Promise.resolve(null);
+      return Promise.resolve({ size: 2048, type: 'audio/wav', _url: u });
+    },
+    json() { return Promise.resolve({}); },
+    text() { return Promise.resolve(''); }
+  });
+};
+
 /* A hand-driven XHR: the test decides exactly when (and how) it completes. */
 const pending = [];
 function FakeXHR() {
@@ -77,14 +112,18 @@ FakeXHR.prototype.abort = function () {
   this._aborted = true;
   if (typeof this.onabort === 'function') this.onabort();
 };
+/* Complete this request with a chosen status. The test decides when. */
+FakeXHR.prototype.finish = function (status, payload) {
+  this._done = true;
+  this.status = status;
+  this.responseText = JSON.stringify(payload);
+  this.onload();
+};
 /* Resolve the oldest outstanding request (sent, not aborted, not yet completed). */
 function flush(status, payload) {
   const xhr = pending.find((x) => x.sent && !x._aborted && !x._done);
   if (!xhr) throw new Error('flush(): no in-flight request');
-  xhr._done = true;
-  xhr.status = status;
-  xhr.responseText = JSON.stringify(payload);
-  xhr.onload();
+  xhr.finish(status, payload);
   return xhr;
 }
 function inflight() {
@@ -774,6 +813,221 @@ const sleep = () => new Promise((r) => setTimeout(r, 0));
   ok(/默认音色/.test(Api._fishErrorMessage(400, '{"message":"Reference not found"}', 'k', 'tts', '')),
      'I9 a 400 Reference-not-found explains the voice id');
 
+  console.log('\n=== J. fish voice cloning (the Clone button) ===');
+  /* Reported from a screenshot: the button refused on api.fish.audio with
+     "不支持本地样本自动克隆". That refusal was wrong (POST /model does take
+     samples), so this pins the corrected behaviour on BOTH surfaces. fetch()
+     hands back a fake File per sample URL, so what is under test is only which
+     endpoint the request lands on and what the multipart form carries. */
+  Config.set('tts.provider', 'fish');
+  Config.set('tts.fishApiKey', 'test-key');
+  Config.set('tts.reference', 'assets/voice/ryza_wav/ryza_ref_clean.wav');
+
+  const wait = () => Promise.all([sleep(), sleep(), sleep()]);
+  /* Answer the clone request by hand. The clone assertions cannot use flush():
+     fishSampleParts() settles on a microtask, so the request is already posted
+     by the first tick and flush() would find none "in flight". Selecting by
+     method + URL keeps the suite's single XHR implementation, and _done is put
+     back so inflight() (used by the J7 assertion) stays meaningful. */
+  async function answerClone(kind, body, status) {
+    await wait();
+    const xhr = pending.filter((x) => x.sent && !x._done && x._method === 'POST' &&
+                                   new RegExp(kind + '$')
+                                     .test(decodeURIComponent(String(x.__url))))[0] || null;
+    /* A missing request is reported by the assertions that follow, not by a
+       throw: the point of this section is to fail loudly if the clone button
+       goes back to refusing, and a crash would hide which assertion broke. */
+    const form = xhr ? xhr.body : null;
+    if (xhr) {
+      xhr.__url = decodeURIComponent(String(xhr.__url));
+      /* FakeXHR.finish() runs JSON.stringify over the payload, so an error
+         body has to be handed over as the JSON TEXT the server would send,
+         the same thing api.js feeds to parseBody(). A plain object stringifies
+         to the same bytes either way, but a documented `{"status":402,...}`
+         string would have arrived double-encoded and then read back as
+         "unreadable body" — the 402 branch would never be reached and the
+         assertion would pass for the wrong reason. */
+      const payload = typeof body === 'string' ? JSON.parse(body) : body;
+      xhr.finish(status == null ? 200 : status, payload);
+      await wait();
+      xhr._done = true;                /* the caller consumes the request here */
+    }
+    return { xhr: xhr, form: form, url: xhr ? xhr.__url : '' };
+  }
+
+  /* J1-J4: the official endpoint, the path that used to refuse outright. */
+  Config.set('tts.fishBaseUrl', 'https://api.fish.audio');
+  let cloneErr = null, cloneId = null;
+  const modernPromise = Api.fishCloneVoice()
+    .then((id) => { cloneId = id; }, (e) => { cloneErr = e; });
+  const modem = await answerClone('/model', { _id: 'abc123' });
+  await modernPromise;
+  ok(cloneErr === null && !!modem.xhr,
+     'J1 the clone button no longer refuses on the official api.fish.audio');
+  ok(modem.url === '/_proxy?u=https://api.fish.audio/model',
+     'J2 it posts to /model (not /voices), rewritten onto the same-origin proxy');
+  ok(modem.form instanceof FakeFormData &&
+     String(modem.form.get('type').value) === 'tts' &&
+     String(modem.form.get('train_mode').value) === 'fast' &&
+     String(modem.form.get('visibility').value) === 'private',
+     'J3 the modern form carries type=tts, train_mode=fast and visibility=private');
+  ok(modem.form.getAll('voices').length >= 1 &&
+     modem.form.getAll('voices').every((e) => !!e.filename) &&
+     !modem.form.has('audioFiles'),
+     'J3 the samples ride as repeated `voices` parts, each with a filename');
+  ok(cloneId === 'abc123',
+     'J4 a modern body {"_id":...} becomes the new voice id');
+
+  /* J5-J6: the older Open API keeps its exact request shape. fishaudio.org is
+     the host this suite already treats as the older surface (I3). */
+  Config.set('tts.fishBaseUrl', 'https://fishaudio.org');
+  cloneErr = null; cloneId = null;
+  const legacyPromise = Api.fishCloneVoice()
+    .then((id) => { cloneId = id; }, (e) => { cloneErr = e; });
+  const old = await answerClone('/voices', { voiceId: 'legacy9' });
+  await legacyPromise;
+  ok(cloneErr === null && /fishaudio\.org/.test(old.url) && /\/voices$/.test(old.url),
+     'J5 the older surface still posts to /voices on its own host');
+  ok(old.form instanceof FakeFormData &&
+     old.form.getAll('audioFiles').length >= 1 &&
+     !old.form.has('voices') && !old.form.has('train_mode'),
+     'J6 and still carries audioFiles, with no modern field smuggled in');
+  ok(cloneId === 'legacy9', 'J6 a legacy body {"voiceId":...} still becomes the id');
+
+  /* J7: no usable sample is the one case that must fail loudly, on either
+     surface, and it must not reach the network. Every sample URL is 404'd.
+     The check counts POSTs rather than inflight(): earlier sections leave an
+     intentionally unanswered TTS request behind, so a global in-flight count
+     says nothing about this call. */
+  const noLocalSamples = (e) => !!e && /找不到本地莱莎原声/.test(String(e.message));
+  const posts = () => pending.filter((x) => x._method === 'POST').length;
+  const postsBefore = posts();
+  Config.set('tts.reference', '');
+  Api._fishSampleUrls().forEach((u) => { fetchFail[u] = 1; });
+  cloneErr = null;
+  Api.fishCloneVoice().then(() => {}, (e) => { cloneErr = e; });
+  await wait();
+  ok(noLocalSamples(cloneErr),
+     'J7 no local sample on the official surface rejects with the local-audio message');
+  Config.set('tts.fishBaseUrl', 'https://fishaudio.org');
+  cloneErr = null;
+  Api.fishCloneVoice().then(() => {}, (e) => { cloneErr = e; });
+  await wait();
+  ok(noLocalSamples(cloneErr),
+     'J7 and the older surface fails with the very same message');
+  ok(posts() === postsBefore,
+     'J7 neither surface posts an empty multipart body to the server');
+
+  Config.set('tts.fishBaseUrl', '');
+  Config.set('tts.reference', 'assets/voice/ryza_wav/ryza_ref_clean.wav');
+  Object.keys(fetchFail).forEach((k) => delete fetchFail[k]);
+
+  /* J8-J11: what the live probe against api.fish.audio taught. The vendor's
+     own answer is the only fixture that can settle these, so each one names
+     the measured response it came from. */
+  /* J8: 19 sample URLs are offered (the reference plus nine wavs and the nine
+     m4a they were converted from); the m4a duplicates are dropped. The schema
+     allows 1 to 20 files, and all ten wavs fit inside that, so the cap is a
+     guard for future sample sets rather than something this one trips. */
+  const offered = Api._fishSampleUrls();
+  const sent = await Api._fishSampleParts();
+  ok(offered.length === 19 && sent.length === 10 &&
+     sent.every((f) => /\.wav$/i.test(f.name)),
+     'J8 the ten wav samples are sent and the nine m4a duplicates are dropped');
+  ok(Api._fishCloneMaxFiles > 0 && Api._fishCloneMaxFiles <= 20 &&
+     sent.length <= Api._fishCloneMaxFiles,
+     'J8 and the count stays inside the documented ceiling of twenty files');
+
+  /* J12: the cap has to be a bound that can actually fire. The shipped set is
+     ten wavs, so lowering the limit and watching the count follow is the only
+     way to prove the slice is not decoration — with the shipped set alone,
+     deleting the slice() would leave the suite green. The count is read back
+     through _fishUploadCount(), which builds the file list the way the POST
+     does, rather than a second hand-rolled copy of the rule. */
+  ok(Api._fishCloneLimit(4) === 4, 'J12 the clone limit can be lowered for the test');
+  let capped = 0;
+  try {
+    capped = await Api._fishUploadCount();
+  } finally {
+    /* finally, not a plain call after the await: if measuring threw, the bound
+       would stay at four for everything that runs later in this module. The
+       harness currently exits non-zero on a throw, so the leak is not reachable
+       today; the finally is what keeps that true if per-test catching is ever
+       added. */
+    Api._fishCloneLimit(Api._fishCloneMaxFiles);
+  }
+  const restored = await Api._fishUploadCount();
+  ok(capped === 4 && sent.length === 10,
+     'J12 lowering the limit to four actually reduces the uploaded sample count');
+  ok(restored === sent.length,
+     'J12 and restoring it sends the full ten again');
+  /* Read the bound back through the public getter, so a restore that only looks
+     right in the local variable is still caught. */
+  ok(Api._fishCloneLimit() === Api._fishCloneMaxFiles,
+     'J12 and the module is left with the default bound, not the lowered one');
+  /* The bound is a setter, so it has to refuse the two values that turn a
+     smaller upload into a different failure: nothing to send (the server error
+     the local message exists to avoid) and more than the vendor's maxItems. */
+  ok(Api._fishCloneLimit(0) === 1 && Api._fishCloneLimit(99) === 20,
+     'J12 the limit is clamped: never an empty upload, never above the vendor ceiling');
+  Api._fishCloneLimit(Api._fishCloneMaxFiles);
+
+  const postTo = async (kind, body, status) => {
+    Config.set('tts.fishBaseUrl', 'https://api.fish.audio');
+    let err = null, id = null;
+    Api.fishCloneVoice().then((v) => { id = v; }, (e) => { err = e; });
+    const r = await answerClone(kind, body, status);
+    await wait();
+    return { err: err, id: id, form: r.form, url: r.url };
+  };
+
+  /* Measured 201: {"_id":"14ac0e517ed74923aeed0f3f25ef7d62", "type":"tts",
+     "train_mode":"fast", "state":"trained", ...} for a 7 s wav, and that id
+     was accepted by POST /v1/tts straight away (200, audio/wav, 200 kB).
+     So a trained body stores the id and a pending one must not. */
+  let live = await postTo('/model', { _id: 'trainedid', state: 'trained', train_mode: 'fast' }, 201);
+  ok(live.id === 'trainedid' && live.err === null,
+     'J9 the live response shape (state=trained) stores the id');
+  live = await postTo('/model', { _id: 'pendingid', state: 'training', train_mode: 'fast' }, 201);
+  ok(!!live.err && /training|训练/.test(String(live.err.message)) && live.id === null,
+     'J9 a model that is still training is reported instead of stored as usable');
+
+  /* Measured 400: {"status":400,"message":"Failed to preprocess audio:
+     {\"detail\":\"Audio is too short\"}"} for a 0.6 s clip. That arrived with
+     every field name CORRECT, so a 400 must never be blamed on the key. */
+  const tooShortBody = { status: 400,
+    message: 'Failed to preprocess audio: {"detail":"Audio is too short"}' };
+  const tooShort = await postTo('/model', tooShortBody, 400);
+  ok(!!tooShort.err && /太短/.test(String(tooShort.err.message)) &&
+     !/API key/.test(String(tooShort.err.message)),
+     'J10 the measured "Audio is too short" 400 is explained as a short clip');
+  /* And the explanation has to be one the user can act on. A 400 that gets its
+     own branch would still pass the assertion above if the branch ended up
+     returning a bare status code, so name what to do about it. */
+  ok(/秒|second/i.test(String(tooShort.err.message)),
+     'J10 and it tells the user how long a sample has to be');
+
+  /* Measured: the clone call names no engine, so a 402 on it is about the
+     creation cost, not about which model was asked for. */
+  const broke = await postTo('/model',
+    '{"status":402,"message":"Insufficient API credit."}', 402);
+  ok(!!broke.err && !/s2\.1-pro-free/.test(String(broke.err.message)) &&
+     !/engine|引擎/.test(String(broke.err.message)),
+     'J11 a clone 402 does not blame the engine the clone never sent');
+  /* The message must stay actionable: the failure mode this guards against is
+     "fixed" by blanking the text, which passes an absence check and helps
+     nobody. A 402 on the create call is about the credit, so say so. */
+  ok(/额度|credit/i.test(String(broke.err.message)) &&
+     /音色|clone|模型|model/i.test(String(broke.err.message)),
+     'J11 and it still says the voice creation ran out of credit');
+
+  /* J13: the uploaded count is what the create call actually sends, so a cap
+     enforced on a different list than the POST builds would show up here. The
+     POST appends one `voices` part per returned file. */
+  const counted = await Api._fishUploadCount();
+  ok(counted === sent.length,
+     'J13 the count _fishUploadCount() reports is the list the POST uploads');
+  Config.set('tts.fishBaseUrl', '');
   console.log('\n--- 汇总 ---');
   clearTimeout(watchdog);
   console.log(failures ? '结果: FAIL (' + failures + ' 项)' : '结果: OK');

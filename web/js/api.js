@@ -328,6 +328,44 @@
     return /(?:^|[|｜,\s])(?:emotion|attitude|undress|nsfw|stage|place|tod|sleep|time_advance)\s*[:：]/i.test('|' + tag);
   }
 
+  /* A single field, whole-line: `emotion:happy`, `stage:stage_01`. Used by
+     isBareTagLine below, which must never swallow ordinary dialogue. */
+  var TAG_FIELD = /^(?:emotion|attitude|undress|nsfw|stage|place|tod|sleep|time_advance)\s*[:：]\s*\S+$/i;
+
+  /* Some models drop the enclosing brackets and emit the cue as a bare
+     pipe-separated first line, captured verbatim from opag/deepseek-v4.1-flash-free:
+
+         |emotion:happy |attitude:agree| undress:off| stage:stage_01
+
+     The bracket loop in parseTaggedReply never fired on that shape, so every
+     field was lost AND the raw cue stayed in the text the character spoke
+     ("|emotion:happy |attitude:agree|…" read aloud).
+
+     Two things must hold before a line is treated as a cue, because a wrong
+     answer here DELETES dialogue rather than merely mis-setting a field:
+       * every pipe/comma separated field is a known machine field with a
+         value, and
+       * the line either opens with a pipe or carries at least two fields.
+
+     The second rule exists because a lone `emotion:happy` / `stage: 2` line is
+     also a legal machine field, so accepting it would swallow a whole line of
+     the character's speech. A real cue never arrives as one field with no
+     delimiter. */
+  function isBareTagLine(line) {
+    var t = String(line || '').trim();
+    if (!t || t.charAt(0) === '[') return false;
+    var parts = t.split(/[|｜,]/);
+    var seen = 0;
+    for (var i = 0; i < parts.length; i++) {
+      var part = parts[i].trim();
+      if (!part) continue;
+      if (!TAG_FIELD.test(part)) return false;
+      seen++;
+    }
+    if (!seen) return false;
+    return seen > 1 || t.charAt(0) === '|' || t.charAt(0) === '\uff5c';
+  }
+
   function attachSceneTags(state, dest) {
     var s = (state && typeof state === 'object') ? state : {};
     var hit = !!state;
@@ -352,6 +390,36 @@
       if (!isMachineTag(tag)) break;
       parseTagFields(tag, dest);
       body = body.slice(end + 1).replace(/^\s+/, '');
+    }
+    /* Bracket-less cue line, see isBareTagLine. Runs even when a bracket tag
+       was already consumed, because a model may emit both shapes and
+       parseTagFields only overwrites the fields it actually finds.
+
+       The cue is only taken when the character actually says something AFTER
+       it. A cue line is a header, never a message, so a reply made of nothing
+       but machine fields (`stage:2, emotion:happy`) stays visible instead of
+       collapsing into an empty bubble. Losing the line entirely is the worst
+       outcome here, worse than reading a cue aloud. */
+    if (body.charAt(0) !== '[') {
+      var nl = body.indexOf('\n');
+      var head = nl === -1 ? body : body.slice(0, nl);
+      var rest = nl === -1 ? '' : body.slice(nl + 1).replace(/^\s+/, '');
+      if (rest && isBareTagLine(head)) {
+        /* isBareTagLine only checks the SHAPE: a known key with some value.
+           A line like `stage:banana, emotion:unknown` passes that test, but
+           parseTagFields rejects every value, so stripping it would delete a
+           line and gain nothing. The bare form is a guess at what the model
+           meant, so it has to yield at least one real field to be worth acting
+           on. The bracket form above is the app's own protocol and keeps its
+           long-standing behaviour. */
+        var probe = {};
+        parseTagFields(head, probe);
+        var gained = false, pk;
+        for (pk in probe) {
+          if (probe.hasOwnProperty(pk)) { dest[pk] = probe[pk]; gained = true; }
+        }
+        if (gained) body = rest;
+      }
     }
     var ex = extractState(body);
     return {
@@ -409,7 +477,7 @@
       }
       xhr.onload = function () {
         var j = null;
-        try { j = JSON.parse(xhr.responseText); } catch (e) {}
+        j = parseBody(xhr.responseText);
         if (xhrJsonOk(xhr, j)) { resolve(String((j && j.text) || '').trim()); return; }
         reject(new Error(apiErrorMessage(j, xhr.status, xhr.responseText)));
       };
@@ -435,6 +503,152 @@
   }
 
   /* DashScope uses {code, message}; OpenAI-compat uses {error:{message}}. */
+  /* --------------------------------------------------------------- body parse
+     A 2xx body is not always plain JSON. The gateway this was reported
+     against (`lyravein-sv:20128`) defaults to streaming whenever the request
+     omits `stream`, answers `content-type: text/event-stream`, and appends its
+     SSE terminator to the payload. The bytes captured from it were:
+
+         {"choices":[…full completion…]}data: [DONE]\n\ndata: [DONE]\n\n
+
+     JSON.parse rejects that with "Extra data", the caller ended up with a null
+     body, and the player was shown the entire response pasted into a toast
+     reading `Chat failed: HTTP 200: {"choices":…`. Three shapes are tolerated
+     here, in this order: plain JSON, a real SSE stream, and a JSON value with
+     junk appended after it. The raw text is never lost, so the caller can still
+     fall back to it for a diagnostic. */
+  function firstJsonValue(t) {
+    /* Only a value that OPENS the body counts. Scanning for the first `{`
+       anywhere would happily return an object embedded in an HTML error page
+       (`<!DOCTYPE html>…{"a":1}…`) or inside a JSON array, turning an
+       unreadable response into a silently empty reply.
+
+       A leading `[` is deliberately NOT salvaged either. Every endpoint this
+       reader talks to answers with an object, so a top-level array followed by
+       transport junk is not a response this app can use; accepting it is the
+       same silent-empty-reply failure. An array that is the WHOLE body still
+       parses in the plain-JSON step above. */
+    if (t.charAt(0) !== '{') return null;
+    var start = 0;
+    var depth = 0, inStr = false, esc = false, i, c;
+    for (i = start; i < t.length; i++) {
+      c = t.charAt(i);
+      if (inStr) {
+        if (esc) esc = false;
+        else if (c === '\\') esc = true;
+        else if (c === '"') inStr = false;
+        continue;
+      }
+      if (c === '"') inStr = true;
+      else if (c === '{' || c === '[') depth++;
+      else if (c === '}' || c === ']') {
+        depth--;
+        if (depth === 0) {
+          try { return JSON.parse(t.slice(start, i + 1)); } catch (e) { return null; }
+        }
+      }
+    }
+    return null;
+  }
+
+  /* A real stream, assembled. Returning whichever chunk happened to parse last
+     is not good enough: the final event of a delta stream usually carries only
+     `finish_reason`, so the caller would get a valid-looking envelope with no
+     text and the whole reply would vanish without an error.
+
+     Two rules, both deliberate, so the result is deterministic:
+       * only choices[0] is read. The reader above (`choiceText`) only ever
+         looks at choices[0], so assembling any other index would produce a
+         reply the rest of the file cannot see.
+       * a chunk carrying a non-empty `message.content` wins over accumulated
+         deltas, last such chunk first. That is the shape a proxy emits when it
+         sends the finished completion in a final event alongside the deltas,
+         and the finished text is the authoritative one.
+     Otherwise the `delta.content` pieces are concatenated back into one
+     non-streaming envelope, so the reader above never has to know it was a
+     stream. */
+  function joinSse(parts) {
+    var last = null, full = null, acc = '', sawDelta = false, i, j, ch;
+    for (i = 0; i < parts.length; i++) {
+      try { j = JSON.parse(parts[i]); } catch (e) { continue; }
+      if (!j || typeof j !== 'object' || Object.prototype.toString.call(j) === '[object Array]') continue;
+      last = j;
+      ch = j.choices && j.choices[0];
+      if (!ch) continue;
+      if (ch.message && hasContent(ch.message.content)) full = j;
+      else if (ch.delta) { sawDelta = true; acc += contentText(ch.delta.content); }
+    }
+    if (full) return full;
+    if (last && sawDelta) {
+      var fin = (last.choices && last.choices[0] && last.choices[0].finish_reason) || 'stop';
+      last.choices = [{ index: 0, finish_reason: fin,
+                        message: { role: 'assistant', content: acc } }];
+      return last;
+    }
+    return last;
+  }
+
+  /* The text a content value carries, in either legal shape: a plain string, or
+     the content-parts array choiceText() also reads. Parts that carry no text at
+     all (an image_url part, say) contribute nothing, so a reply made only of
+     those is not mistaken for readable text. */
+  function contentText(c) {
+    if (typeof c === 'string') return c;
+    if (!Array.isArray(c)) return '';
+    var out = '', i, p;
+    for (i = 0; i < c.length; i++) {
+      p = c[i];
+      if (!p) continue;
+      if (typeof p.text === 'string') out += p.text;
+      else if (typeof p.content === 'string') out += p.content;
+    }
+    return out;
+  }
+
+  /* Does a finished message carry text? Recognising only the string shape let a
+     final event written as parts be overwritten by the accumulated deltas, so
+     the authoritative text was the one that got lost. */
+  function hasContent(c) {
+    return !!contentText(c);
+  }
+
+  function parseBody(raw) {
+    var t = String(raw == null ? '' : raw).replace(/^\uFEFF/, '').trim();
+    if (!t) return null;
+    try {
+      var whole = JSON.parse(t);
+      /* Only an object is a usable response. An array or a bare scalar parses
+         cleanly but carries no choices, and returning it as a success is how a
+         reply turns into an empty bubble with no error anywhere: xhrJsonOk
+         accepts any truthy value. Every one of the five call sites reads named
+         fields off an object (chat, translate, complete, the audio reply, STT
+         and the GET probe), so nothing here wants an array. */
+      if (whole && typeof whole === 'object' && !Array.isArray(whole)) return whole;
+    } catch (e) { /* not plain JSON */ }
+    /* A genuine stream. Frames are separated by a blank line and ONE frame's
+       data may span several `data:` lines, which the spec says to join with a
+       newline before the payload means anything (pretty-printed or wrapped JSON
+       arrives that way). Parsing line by line instead hands joinSse half an
+       object, so a readable reply turned into the "unreadable body" error. */
+    if (/(^|\n)\s*data:/.test(t)) {
+      var parts = [];
+      t.split(/\r?\n\r?\n/).forEach(function (frame) {
+        var buf = [];
+        frame.split(/\r?\n/).forEach(function (line) {
+          var m = /^\s*data:\s?(.*)$/.exec(line);
+          if (m) buf.push(m[1]);
+        });
+        if (!buf.length) return;
+        var v = buf.join('\n').trim();
+        if (!v || /^\[DONE\]$/i.test(v)) return;
+        parts.push(v);
+      });
+      var joined = joinSse(parts);
+      if (joined) return joined;
+    }
+    return firstJsonValue(t);
+  }
+
   function apiErrorMessage(j, status, raw) {
     if (j) {
       var err = j.error;
@@ -456,8 +670,35 @@
       }
       if (msg) return String(msg);
     }
+    if (status >= 200 && status < 300) {
+      /* 2xx but no readable JSON: the endpoint answered with something this
+         client cannot parse (an SSE stream from a gateway that streams despite
+         stream:false, an HTML captive-portal page, a truncated reply). Name
+         the situation instead of pasting the body into the toast, which is
+         what the player used to see. */
+      try { if (typeof I18n !== 'undefined' && I18n.t) return I18n.t('api.badBody'); } catch (e) {}
+      return 'unreadable response body (HTTP ' + status + ')';
+    }
     var snippet = raw ? String(raw).replace(/\s+/g, ' ').slice(0, 180) : '';
     return 'HTTP ' + status + (snippet ? ': ' + snippet : '');
+  }
+
+  /* A 2xx body is not automatically a completion. A proxy can answer 200 with an
+     error object, and a wrong endpoint answers 200 with anything at all; both
+     used to arrive as an empty reply, which reads as the character silently
+     saying nothing. Refusing them turns that into a message the player can act
+     on.
+     The test is exactly what choiceText() can read: choices[0].message.content
+     as a string, or as content parts. An explicitly empty string is a real
+     answer and stays allowed. An absent message, or content of any other type,
+     would have produced a blank bubble anyway, so it becomes an error instead of
+     silence. */
+  function requireCompletion(j) {
+    if (j && j.error) throw new Error(apiErrorMessage(j, 200, ''));
+    var ch = j && j.choices && j.choices.length ? j.choices[0] : null;
+    var c = ch && ch.message ? ch.message.content : null;
+    if (typeof c !== 'string' && !Array.isArray(c)) throw new Error(apiErrorMessage(null, 200, ''));
+    return j;
   }
 
   function xhrJsonOk(xhr, j) {
@@ -533,7 +774,7 @@
       xhr.onload = function () {
         untrack();
         var j = null;
-        try { j = JSON.parse(xhr.responseText); } catch (e) {}
+        j = parseBody(xhr.responseText);
         if (xhrJsonOk(xhr, j)) resolve(j);
         else reject(new Error(apiErrorMessage(j, xhr.status, xhr.responseText)));
       };
@@ -556,7 +797,7 @@
       }
       xhr.onload = function () {
         var j = null;
-        try { j = JSON.parse(xhr.responseText); } catch (e) {}
+        j = parseBody(xhr.responseText);
         if (xhrJsonOk(xhr, j)) resolve(j);
         else if (errorMap) reject(new Error(errorMap(xhr.status, xhr.responseText, apiKey)));
         else reject(new Error(apiErrorMessage(j, xhr.status, xhr.responseText)));
@@ -616,11 +857,16 @@
     if (status === 401) return 'Fish Audio：API key 无效或缺失（HTTP 401，' + label + '）' + fishHostHint(root);
     if (status === 403) return 'Fish Audio：权限不足、模型不可用或音色无权访问（HTTP 403，' + label + '）' + fishHostHint(root);
     if (status === 429) return 'Fish Audio：超出速率或额度限制（HTTP 429，' + label + '）';
-    /* Measured: the API answers 402 not only for a real balance problem but
-       also for an engine that is not free (or a misspelled one) — s2-pro and
-       s1 are paid, an unknown id is "insufficient credit" too. Saying which
-       engine is free is the only actionable half of that message. */
+    /* Measured against the live endpoint: POST /model and POST /voices answer
+       402 for a real balance problem, and the CURRENT TTS API also answers 402
+       for a paid or misspelled engine (s2.1-pro-free is the free one). The
+       clone request names no engine at all, so blaming an engine there sends
+       the user to fix the wrong field; say which call ran out of credit. */
     if (status === 402) {
+      if (phase === 'clone') {
+        return 'Fish Audio：这次创建音色需要 API 额度（HTTP 402）——'
+             + '克隆本身是付费动作，免费额度用完后要在 fish.audio 的开发者页充值。';
+      }
       return 'Fish Audio：这个引擎需要 API 额度（HTTP 402）——免费只有 s2.1-pro-free；'
            + '付费引擎/写错的引擎名都会报这个。充值入口在 fish.audio 的开发者页。';
     }
@@ -632,6 +878,14 @@
     if (status === 400 && /reference not found/i.test(String(raw || ''))) {
       return 'Fish Audio：音色 ID 无效或不属于这个账号（HTTP 400）——'
            + '请在 fish.audio 里复制自己音色的 id，或留空用默认音色。';
+    }
+    /* Measured 400: "Failed to preprocess audio: {"detail":"Audio is too short"}".
+       The clue arrives nested inside the API's own sentence, so the generic
+       path would paste an English blob and the user cannot see what to change.
+       Every shipped local sample is about seven seconds. */
+    if (status === 400 && /too short/i.test(String(raw || ''))) {
+      return 'Fish Audio：音色创建失败，样本音频太短（HTTP 400）——'
+           + '每个样本至少几秒；自带样本约 7 秒，可以先直接用它们。';
     }
     return 'Fish Audio ' + label + '失败' + (detail ? '：' + detail : '（HTTP ' + status + '）');
   }
@@ -660,7 +914,7 @@
         }
         var raw = bufToText(buf);
         var j = null;
-        try { j = JSON.parse(raw); } catch (e) {}
+        j = parseBody(raw);
         if (xhr.status >= 200 && xhr.status < 300 && j && (j.audio_url || j.audioUrl)) {
           Api._downloadUrl(j.audio_url || j.audioUrl, apiKey).then(resolve, reject);
           return;
@@ -683,7 +937,7 @@
       if (apiKey) xhr.setRequestHeader('Authorization', 'Bearer ' + apiKey);
       xhr.onload = function () {
         var j = null;
-        try { j = JSON.parse(xhr.responseText); } catch (e) {}
+        j = parseBody(xhr.responseText);
         if (xhrJsonOk(xhr, j)) resolve(j);
         else reject(new Error(errorMap
           ? errorMap(xhr.status, xhr.responseText, apiKey)
@@ -890,6 +1144,44 @@
     return urls;
   }
 
+  /* The vendor's own schema for POST /model (docs.fish.audio/api-reference/
+     openapi.json) gives `voices`: "array ... minItems 1, maxItems 20", and
+     marks type, title, train_mode and voices as required. Fifteen sent files
+     leave headroom without shipping all nineteen candidates at once. */
+  var FISH_CLONE_MAX_FILES = 15;
+  /* A test seam, so the bound is provably reachable rather than decoration:
+     the shipped set is ten wavs and never trips it, which would let a deleted
+     slice() keep passing the suite. Lowered by voice_regression and restored. */
+  var fishCloneMaxFiles = FISH_CLONE_MAX_FILES;
+
+  /* Fetch the local samples both clone paths upload, and reduce them to the
+     blobs a FormData wants. wav wins over m4a when both are on disk: the m4a
+     set is the shipped prologue audio, the wav set is the same lines already
+     converted, and Fish asks for clean single-speaker audio. Returns a Promise
+     because a browser read is async; an empty result is a rejection, not an
+     empty upload, because POST /voices with no file is a server error rather
+     than a message the user can act on. */
+  function fishSampleParts() {
+    return Promise.all(fishSampleUrls().map(function (url) {
+      return fetch(url).then(function (r) {
+        if (!r.ok) return null;
+        return r.blob().then(function (blob) {
+          if (!blob || !blob.size) return null;
+          return { blob: blob, name: url.split('/').pop() || 'sample.wav' };
+        });
+      }).catch(function () { return null; });
+    })).then(function (parts) {
+      var files = parts.filter(Boolean);
+      var wavs = files.filter(function (f) { return /\.wav$/i.test(f.name); });
+      if (wavs.length) files = wavs;
+      if (!files.length) {
+        throw new Error('找不到本地莱莎原声（需要 assets/audio/prologue/jp/*.m4a 或 voice/ryza_wav/*.wav）');
+      }
+      if (files.length > fishCloneMaxFiles) files = files.slice(0, fishCloneMaxFiles);
+      return files;
+    });
+  }
+
   var _fishCloneWait = null;
 
   function qwenDefaultVoice(model, current) {
@@ -960,9 +1252,13 @@
     return Math.ceil(n);
   }
 
+  /* Per-turn cost. Takes raw text: estMsg wraps it for message objects. Mixing
+     the two once made buildTurn measure the system prompt as zero bytes. */
+  function estTurn(text) { return 8 + estTokens(text); }
+  function estMsg(m) { return estTurn(m && m.content); }
   function estMessages(msgs) {
     var t = 0, i;
-    for (i = 0; i < msgs.length; i++) t += 8 + estTokens(msgs[i] && msgs[i].content);
+    for (i = 0; i < msgs.length; i++) t += estMsg(msgs[i]);
     return t;
   }
 
@@ -1213,6 +1509,63 @@
     return guessContext(llm && llm.model) || 32768;
   }
 
+  /* Everything a turn sends, decided before the network. Lifted out of chat()
+     because the trim below is destructive and silent: when a history overruns
+     the window the oldest turns vanish and the character just appears to
+     forget, with nothing on screen to explain it. The context meter needs the
+     exact numbers this produces, so it calls this rather than keeping a second
+     copy of the rule that can quietly disagree with the one that ships. */
+  function buildTurn(llm, opts, history, userText) {
+    opts = opts || {};
+    var st = Config.section('state');
+    var outLang = opts.lang || Api.replyLang();
+    var mem = '';
+    try { if (window.Memory) mem = Memory.promptBlock() || ''; } catch (e) { mem = ''; }
+    /* 长期记忆（条目 + 摘要）独立于近窗卡片：digest 永远注入，条目按本轮
+       用户说的话做相关度挑选。没有这一层，三个月前的约定就再也想不起来。 */
+    try {
+      if (window.LongTerm) {
+        var lt = LongTerm.promptBlock(opts.cue || '');
+        if (lt) mem = mem ? (mem + String.fromCharCode(10, 10) + lt) : lt;
+      }
+    } catch (e) { /* 记忆层不许拖垮对话 */ }
+    var system = buildSystemPrompt(opts.mode || st.mode, opts.style || st.style,
+                                   opts.rpgContext || '', outLang, opts.nsfwSection || '',
+                                   opts.sceneSection || '', mem);
+    var keep = Math.max(0, (llm.historyTurns || 12) * 2);
+    var given = history || [];
+    var hist = given.slice(-keep);
+    /* The slice drops turns just as silently as the trim below does. Counting
+       them is the difference between "you are losing messages" and a green bar
+       that lies: at the default keep=24 a 100-message history was shedding 76
+       turns per request while reporting dropped=0. */
+    var dropped = given.length - hist.length;
+    var ctx = resolvedContext(llm);
+    var reserve = Math.max(256, Number(llm.maxTokens) || 400) + 96;
+    var budget = Math.max(1024, ctx - reserve);
+    function pack(h) {
+      return [{ role: 'system', content: system }]
+        .concat(h)
+        .concat([{ role: 'user', content: withTurnCue(userText) }]);
+    }
+    /* estMessages is a plain sum, so the system and pending turns can be
+       measured once. The trim loop below re-measures on every iteration; leaving
+       them in made each pass cost the full system prompt too, which the live
+       keystroke meter then paid for on every character typed. */
+    var fixed = estTurn(system) + estTurn(withTurnCue(userText));
+    function used(h) { return fixed + estMessages(h); }
+    var now = used(hist);
+    while (hist.length > 2 && now > budget) {
+      hist = hist.slice(2);
+      dropped += 2;
+      now = used(hist);
+    }
+    return {
+      messages: pack(hist), used: now, budget: budget, ctx: ctx,
+      dropped: dropped, kept: hist.length
+    };
+  }
+
   var Api = {
     EMOTIONS: EMOTIONS,
     ATTITUDES: ATTITUDES,
@@ -1238,6 +1591,13 @@
        the protocol layer never reads the render layer. */
     setScreenState: function (fn) { _screenState = (typeof fn === 'function') ? fn : null; },
     resolvedContext: function () { return resolvedContext(Config.section('llm')); },
+    /* The meter's read-only twin of chat(). Same builder, same trim, no
+       request: tells the UI how full the window is and whether sending would
+       drop anything. Takes history rather than reading App.history so the
+       protocol layer keeps its hands off the view layer. */
+    previewContext: function (history, opts, userText) {
+      return buildTurn(Config.section('llm'), opts || {}, history || [], userText || '');
+    },
     /* test seam: which calls get rewritten onto the same-origin /_proxy
        (nsfw_intent_regression asserts serve.py + ryza://app both route) */
     _localProxy: localProxy,
@@ -1263,6 +1623,27 @@
     _fishErrorMessage: fishErrorMessage,
     _fishLanguage: fishLanguage,
     _fishSampleUrls: fishSampleUrls,
+    _fishSampleParts: fishSampleParts,
+    _fishCloneMaxFiles: FISH_CLONE_MAX_FILES,
+    /* The live bound, not the constant: a test lowers this to prove the slice
+       is not decoration, and the suite would pass unchanged if it were. It is
+       clamped, because a bound of nothing is not a smaller bound but a
+       different bug: an empty `voices` list is a server error rather than the
+       local message the user can act on, and above the vendor's documented
+       maxItems it is a rejected request. */
+    _fishCloneLimit: function (n) {
+      if (n == null) return fishCloneMaxFiles;
+      var want = Math.floor(Number(n));
+      if (!isFinite(want)) return fishCloneMaxFiles;
+      fishCloneMaxFiles = Math.max(1, Math.min(20, want));
+      return fishCloneMaxFiles;
+    },
+    /* How many files the NEXT upload will carry, computed the way the POST
+       builds it, so a test can read the count the create call would send
+       without a second hand-rolled copy of the rule. */
+    _fishUploadCount: function () {
+      return fishSampleParts().then(function (files) { return files.length; });
+    },
     /* resolved per-mode TTS voice direction (base hint + mode layer) */
     ttsStyleFor: function (mode) { return ttsStyleFor(mode, Config.section('tts')); },
     /* speech input: stt.js gets this as an injected port */
@@ -1284,7 +1665,7 @@
       var llm = Config.section('llm');
       if (!llm.apiKey) return Promise.resolve(text);
       return request(localProxy(upstreamUrl(llm.baseUrl, '/chat/completions')), {
-        model: llm.model,
+        model: llm.model, stream: false,
         messages: [
           { role: 'system', content: 'You are a translator for a Japanese anime game character (Ryza, cheerful young alchemist). Translate her line into ' + langName(toLang) + ', keeping the playful spoken tone, first-person feel and emotion. Output ONLY the translated line — no quotes, notes or tags.' },
           { role: 'user', content: text }
@@ -1322,44 +1703,23 @@
       var standalone = opts.standalone === true;
       var epoch = standalone ? null
                 : ((opts.epoch != null) ? opts.epoch : Api.newTurn());
-      var st = Config.section('state');
-      var outLang = opts.lang || Api.replyLang();
-      var mem = '';
-      try { if (window.Memory) mem = Memory.promptBlock() || ''; } catch (e) { mem = ''; }
-      /* 长期记忆（条目 + 摘要）独立于近窗卡片：digest 永远注入，条目按本轮
-         用户说的话做相关度挑选。没有这一层，三个月前的约定就再也想不起来。 */
-      try {
-        if (window.LongTerm) {
-          var lt = LongTerm.promptBlock(opts.cue || '');
-          if (lt) mem = mem ? (mem + String.fromCharCode(10, 10) + lt) : lt;
-
-        }
-      } catch (e) { /* 记忆层不许拖垮对话 */ }
-      var system = buildSystemPrompt(opts.mode || st.mode, opts.style || st.style,
-                                     opts.rpgContext || '', outLang, opts.nsfwSection || '',
-                                     opts.sceneSection || '', mem);
-      var keep = Math.max(0, (llm.historyTurns || 12) * 2);
-      var hist = (history || []).slice(-keep);
-      var ctx = resolvedContext(llm);
-      var reserve = Math.max(256, Number(llm.maxTokens) || 400) + 96;
-      var budget = Math.max(1024, ctx - reserve);
-      function pack(h) {
-        return [{ role: 'system', content: system }]
-          .concat(h)
-          .concat([{ role: 'user', content: withTurnCue(userText) }]);
-      }
-      var used = estMessages(pack(hist));
-      while (hist.length > 2 && used > budget) {
-        hist = hist.slice(2);
-        used = estMessages(pack(hist));
-      }
-      if (used > budget * 0.85) {
+      var fit = buildTurn(llm, opts, history, userText);
+      if (fit.used > fit.budget * 0.85) {
         try { if (window.Memory) Memory.notifyPressure(); } catch (e) {}
       }
       var body = {
-        model: llm.model, messages: pack(hist),
+        model: llm.model, messages: fit.messages,
         temperature: Number(llm.temperature) || 0.9,
-        max_tokens: Number(llm.maxTokens) || 400
+        max_tokens: Number(llm.maxTokens) || 400,
+        /* Explicit, and safe to send everywhere: all four call sites that set
+           this (translate, chat, complete and the audio reply) post to the same
+           /chat/completions surface, where `stream` is an optional parameter
+           that already defaults to false. Naming the default cannot add a
+           constraint a compliant endpoint was not under already.
+           It matters because a gateway that defaults to streaming answers
+           text/event-stream instead, which this non-streaming reader cannot
+           use; parseBody salvages that body if one does it anyway. */
+        stream: false
       };
       attachThinking(body, llm, _modelMeta && _modelMeta.id === llm.model ? _modelMeta : null);
       return request(localProxy(upstreamUrl(llm.baseUrl, '/chat/completions')),
@@ -1368,7 +1728,7 @@
            must not reach the caller at all (no history push, no face change,
            no speech). */
         if (epoch != null && Api.isStale(epoch)) throw staleError();
-        return parseTaggedReply(choiceText(j));
+        return parseTaggedReply(choiceText(requireCompletion(j)));
       });
     },
 
@@ -1378,7 +1738,7 @@
       var llm = Config.section('llm');
       if (!Config.llmReady()) return Promise.reject(new Error('NO_KEY'));
       return request(localProxy(upstreamUrl(llm.baseUrl, '/chat/completions')), {
-        model: llm.model,
+        model: llm.model, stream: false,
         messages: [
           { role: 'system', content: String(system || '') },
           { role: 'user', content: String(user || '') }
@@ -1386,7 +1746,7 @@
         temperature: opts.temperature != null ? opts.temperature : 0.2,
         max_tokens: opts.maxTokens || 280
       }, llm.apiKey, opts.timeout || 60000).then(function (j) {
-        return String(choiceText(j) || '').trim();
+        return String(choiceText(requireCompletion(j)) || '').trim();
       });
     },
 
@@ -1476,7 +1836,7 @@
       function send(voiceField) {
         audio.voice = voiceField;
         return request(localProxy(upstreamUrl(cred.baseUrl, '/chat/completions')), {
-          model: model,
+          model: model, stream: false,
           messages: [
             { role: 'user', content: styleHint },
             { role: 'assistant', content: text }
@@ -1554,9 +1914,19 @@
 
       function synthModern(voice) {
         /* Current contract: engine in a header, voice as reference_id, and no
-           instruction/emotion fields — the model does the delivery. */
+           instruction/emotion fields: the model does the delivery.
+
+           Delivery is steered through the TEXT instead, because that is the
+           only channel this surface offers: a [bracketed] cue is performed by
+           the model, and *asterisk* markup is read out literally. Both are
+           applied by web/js/fish.js (io layer), which owns the cue tables and
+           the action rewriter. It is pure string handling and reads nothing
+           else: this call already has the talk mode and the emotion in hand,
+           so it is the caller that supplies both. */
+        var spoken = (window.Fish && window.Fish.prepare)
+          ? window.Fish.prepare(text, mode, emotion) : text;
         var body = {
-          text: text,
+          text: spoken,
           format: (tts.format === 'mp3') ? 'mp3' : 'wav'
         };
         if (voice) body.reference_id = voice;
@@ -1652,43 +2022,56 @@
     fishCloneVoice: function () {
       var tts = Config.section('tts');
       if (!tts.fishApiKey) return Promise.reject(new Error('NO_KEY'));
-      /* The current API builds a voice from /file + /model and needs the account
-         to own it; uploading local samples is only the older Open API's move.
-         Refusing with the next step beats a 404 from a path that does not exist
-         there. */
-      if (fishApiStyle(fishApiRoot(tts.fishBaseUrl)) === 'modern') {
-        return Promise.reject(new Error(
-          'Fish Audio（api.fish.audio）不支持本地样本自动克隆——请在 fish.audio 里创建音色，把它的 id 填到「Fish 音色」'));
-      }
-      return Promise.all(fishSampleUrls().map(function (url) {
-        return fetch(url).then(function (r) {
-          if (!r.ok) return null;
-          return r.blob().then(function (blob) {
-            if (!blob || !blob.size) return null;
-            return { blob: blob, name: url.split('/').pop() || 'sample.wav' };
-          });
-        }).catch(function () { return null; });
-      })).then(function (parts) {
-        var files = parts.filter(Boolean);
-        var wavs = files.filter(function (f) { return /\.wav$/i.test(f.name); });
-        if (wavs.length) files = wavs;
-        if (!files.length) {
-          throw new Error('找不到本地莱莎原声（需要 assets/audio/prologue/jp/*.m4a 或 voice/ryza_wav/*.wav）');
-        }
+      var root = fishApiRoot(tts.fishBaseUrl);
+      /* BOTH surfaces can build a voice from these local samples, they just
+         ask for it differently: the current API takes POST /model with
+         `voices` and answers `_id`, the older Open API takes POST /voices with
+         `audioFiles` and answers `voiceId`. This used to refuse the current
+         one and send the user to the web app to make the voice by hand, which
+         was wrong: uploading samples is supported there too. */
+      return fishSampleParts().then(function (files) {
         var fd = new FormData();
-        fd.append('name', 'ryza');
-        fd.append('description', 'Local Ryza prologue clone');
-        fd.append('visibility', 'private');
-        fd.append('languages', JSON.stringify(['ja', 'zh', 'en']));
-        files.forEach(function (f) { fd.append('audioFiles', f.blob, f.name); });
-        return requestForm(localProxy(fishApiRoot(tts.fishBaseUrl) + '/voices'),
-                           fd, tts.fishApiKey, 180000,
+        if (fishApiStyle(root) === 'modern') {
+          /* The vendor schema marks type, title, train_mode and voices as
+             required, and documents train_mode "fast" as "model instantly
+             available after creation". Measured with ten samples: HTTP 201,
+             state "trained", and that _id was accepted by POST /v1/tts on the
+             next call. The returned id is the reference_id the TTS call wants,
+             which is exactly what tts.fishVoice holds. */
+          fd.append('type', 'tts');
+          fd.append('title', 'ryza');
+          fd.append('train_mode', 'fast');
+          fd.append('visibility', 'private');
+          fd.append('description', 'Local Ryza prologue clone');
+          files.forEach(function (f) { fd.append('voices', f.blob, f.name); });
+        } else {
+          fd.append('name', 'ryza');
+          fd.append('description', 'Local Ryza prologue clone');
+          fd.append('visibility', 'private');
+          fd.append('languages', JSON.stringify(['ja', 'zh', 'en']));
+          files.forEach(function (f) { fd.append('audioFiles', f.blob, f.name); });
+        }
+        var path = fishApiStyle(root) === 'modern' ? '/model' : '/voices';
+        return requestForm(localProxy(root + path), fd, tts.fishApiKey, 180000,
                            function (st, raw, key) {
-                             return fishErrorMessage(st, raw, key, 'clone', fishApiRoot(tts.fishBaseUrl));
+                             return fishErrorMessage(st, raw, key, 'clone', root);
                            });
       }).then(function (j) {
-        var vid = j && (j.voiceId || j.voice_id);
-        if (!vid) throw new Error(apiErrorMessage(j, 200, '') || '未返回 voiceId');
+        /* The current API answers `_id`, the older one `voiceId`; accept either
+           rather than keying off the surface, so a body that carries the other
+           field still works. `state` is checked because a model that is not
+           trained yet cannot be used as a reference_id, and storing the id now
+           would make the very next line fail with a message about the wrong
+           field: measured, train_mode=fast answers `state: "trained"` right in
+           the create response, so anything else means the fast path did not
+           happen and the user has to know that. */
+        var vid = j && (j._id || j.voiceId || j.voice_id || j.id);
+        if (!vid) throw new Error(apiErrorMessage(j, 200, '') || '未返回音色 ID');
+        var state = j && j.state;
+        if (state && String(state).toLowerCase() !== 'trained') {
+          throw new Error('音色已创建（id ' + vid + '）但状态还是 ' + state
+            + '，训练完成后才能使用。稍等片刻再点一次克隆。');
+        }
         return vid;
       });
     },

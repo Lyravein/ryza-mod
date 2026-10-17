@@ -9,7 +9,7 @@
       'nav.alarm': '闹钟', 'nav.chara': '角色设定', 'nav.skin': '服装',
       'nav.memory': '回忆', 'nav.settings': '设置',
       'world.title': '世界地图', 'world.here': '在此地', 'world.current': '目前位置', 'world.list': '列表',
-      'quest.title': '委托', 'alarm.title': '闹钟', 'chara.title': '角色设定',
+      'quest.title': '委托', 'alarm.title': '闹钟', 'chara.title': '角色设定', 'chara.player': '你的（玩家设置）',
       'skin.title': '服装', 'memory.title': '回忆', 'settings.title': '设置',
       'toast.saved': '已保存', 'toast.copied': '已复制',
       'toast.needKey': '请先在设置里填写 API Key',
@@ -26,6 +26,7 @@
       'toast.llmFail': '对话失败：', 'toast.ttsFail': '语音合成失败：',
       'api.timeout': '请求超时：端点没有回应（核对设置里的接口地址与模型名）',
       'api.net': '连不上这个接口地址（地址写错、跨域被拒，或本机服务没开）',
+      'api.badBody': '服务器返回的内容无法解析（可能被当成流式返回）。请核对接口地址，或换一个模型',
       'avatar.noVariant': '这套服装没有对应的变体贴图（素材可能没还原：先跑 scripts/restore_media.py）',
       'toast.thinking': '莱莎正在思考…',
       'toast.ai': '对话由你在设置里填写的模型生成，不经过官方服务器。',
@@ -93,6 +94,14 @@
       'settings.test': '测试', 'settings.testLlm': '测试对话',
       'settings.testTts': '测试语音', 'settings.export': '导出配置',
       'settings.import': '导入配置', 'settings.reset': '恢复默认',
+      'settings.newGame': '新游戏', 'settings.newGameTitle': '开始新游戏？',
+      'settings.newGameOk': '清除并重启',
+      'settings.newGameMsg': '将清除进度、聊天记录、记忆、存档槽和已设定的闹钟，然后重启应用。设置（接口、密钥、模型、语音）会保留。',
+      'settings.resetTitle': '恢复默认设置？',
+      'settings.resetOk': '恢复默认',
+      'settings.resetMsg': '这会把所有设置恢复为出厂默认值，包括接口地址、密钥和模型。游戏进度不受影响。',
+      'ctx.title': '上下文窗口',
+      'ctx.dropped': '上下文已满，本轮将丢弃较早的 {n} 条消息。',
       'settings.lang': '界面语言', 'settings.volume': '音量',
       'settings.textSpeed': '文字速度（毫秒/字）',
       'settings.voice': '语音',
@@ -321,7 +330,7 @@
       'settings.fishModel': 'Fish 引擎模型',
       'settings.fishModel.hint': '引擎 ID，和音色 ID 不是同一个字段。留空＝按接口自动选：官方 api.fish.audio 用 s2.1-pro-free（免费额度），旧版 Open API 用 fishaudio-s21pro-flash。',
       'settings.fishVoice': 'Fish 音色 ID',
-      'settings.fishVoice.hint': '在 fish.audio 建好音色后把它的 id 填在这里；留空则用 API 自带的默认音色（官方接口实测可行）；旧版 Open API 留空会用本地莱莎序章原声自动复刻。',
+      'settings.fishVoice.hint': '在 fish.audio 建好音色后把它的 id 填在这里；点「克隆」按钮会用本地莱莎序章原声自动复刻，新旧接口都支持。留空则用 API 自带的默认音色（官方接口实测可行）。',
       'settings.fishVoiceAsmr': 'Fish ASMR 音色 ID',
       'settings.fishVoiceAsmr.hint': 'ASMR 模式单独用这个音色（耳语声线）。留空＝和普通模式用同一个音色。',
       'settings.fetchVoices': '拉取音色列表',
@@ -369,7 +378,7 @@
       'nav.alarm': 'アラーム', 'nav.chara': 'キャラ設定', 'nav.skin': 'スキン',
       'nav.memory': '思い出', 'nav.settings': '設定',
       'world.title': 'ワールドマップ', 'world.here': 'この場所にいる人', 'world.current': '現在地', 'world.list': 'リスト',
-      'quest.title': 'クエスト', 'alarm.title': 'アラーム', 'chara.title': 'キャラ設定',
+      'quest.title': 'クエスト', 'alarm.title': 'アラーム', 'chara.title': 'キャラ設定', 'chara.player': 'あなた（プレイヤー設定）',
       'skin.title': 'スキン', 'memory.title': '思い出', 'settings.title': '設定',
       'toast.saved': '保存しました', 'toast.copied': 'コピーしました',
       'toast.needKey': '先に設定で API キーを入力してください',
@@ -386,6 +395,7 @@
       'toast.llmFail': '会話エラー：', 'toast.ttsFail': '音声合成エラー：',
       'api.timeout': 'タイムアウトしました：エンドポイントが応答しません（設定のベースURLとモデル名を確認してください）',
       'api.net': 'このベースURLに接続できません（URL違い・CORS・ローカルサーバー未起動）',
+      'api.badBody': 'サーバーの応答を解析できませんでした（ストリーミングで返された可能性があります）。ベースURLとモデル名を確認してください',
       'avatar.noVariant': 'この服にはバリエーションのテクスチャがありません（素材未復元の可能性：scripts/restore_media.py を実行）',
       'toast.thinking': '考え中…',
       'toast.ai': '会話は設定したモデルが生成します。公式サーバーには繋がりません。',
@@ -453,6 +463,14 @@
       'settings.test': 'テスト', 'settings.testLlm': '会話テスト',
       'settings.testTts': '音声テスト', 'settings.export': '書き出し',
       'settings.import': '読み込み', 'settings.reset': '初期化',
+      'settings.newGame': 'ニューゲーム', 'settings.newGameTitle': '新しいゲームを始めますか？',
+      'settings.newGameOk': '消去して再起動',
+      'settings.newGameMsg': '進行状況・チャット履歴・記憶・セーブスロット・設定済みのアラームを消去し、アプリを再起動します。設定（エンドポイント・キー・モデル・声）はそのまま残ります。',
+      'settings.resetTitle': '設定を初期化しますか？',
+      'settings.resetOk': '初期化する',
+      'settings.resetMsg': 'すべての設定を出荷時の既定値に戻します。エンドポイント、キー、モデルを含みます。ゲーム進行には影響しません。',
+      'ctx.title': 'コンテキスト窓',
+      'ctx.dropped': 'コンテキストが満杯です。このターンで古い {n} 件が切り捨てられます。',
       'settings.lang': '表示言語', 'settings.volume': '音量',
       'settings.textSpeed': '文字送り（ミリ秒/文字）',
       'settings.voice': '音声',
@@ -678,7 +696,7 @@
       'settings.fishModel': 'Fish エンジンモデル',
       'settings.fishModel.hint': 'エンジン ID。音色 ID とは別欄です。空欄＝接続先に合わせて自動選択：公式 api.fish.audio は s2.1-pro-free（無料枠）、旧 Open API は fishaudio-s21pro-flash。',
       'settings.fishVoice': 'Fish 音色 ID',
-      'settings.fishVoice.hint': 'fish.audio で作った音色の id をここに入れます。空欄なら API 標準の音色（公式 API で確認済み）、旧 Open API ならローカルのライザ序章音声で自動クローン。',
+      'settings.fishVoice.hint': 'fish.audio で作った音色の id をここに入れます。クローン作成ボタンは、新旧どちらの接続先でもローカルのライザ序章音声から音色を作ります。空欄なら API 標準の音色（公式 API で確認済み）。',
       'settings.fishVoiceAsmr': 'Fish ASMR 音色 ID',
       'settings.fishVoiceAsmr.hint': 'ASMR モードだけこの音色（ささやき声）を使います。空欄＝通常モードと同じ音色。',
       'settings.fetchVoices': '音色一覧を取得',
@@ -726,7 +744,7 @@
       'nav.alarm': 'Alarm', 'nav.chara': 'Character', 'nav.skin': 'Outfits',
       'nav.memory': 'Memories', 'nav.settings': 'Settings',
       'world.title': 'World Map', 'world.here': 'Present here', 'world.current': 'Current location', 'world.list': 'List',
-      'quest.title': 'Quests', 'alarm.title': 'Alarm', 'chara.title': 'Character',
+      'quest.title': 'Quests', 'alarm.title': 'Alarm', 'chara.title': 'Character', 'chara.player': 'You (player settings)',
       'skin.title': 'Outfits', 'memory.title': 'Memories', 'settings.title': 'Settings',
       'toast.saved': 'Saved', 'toast.copied': 'Copied',
       'toast.needKey': 'Set your API key in Settings first',
@@ -743,6 +761,7 @@
       'toast.llmFail': 'Chat failed: ', 'toast.ttsFail': 'Speech failed: ',
       'api.timeout': 'Timed out: the endpoint never answered (check the base URL and model name in Settings)',
       'api.net': 'Could not reach that base URL (wrong address, CORS refused, or the local server is not running)',
+      'api.badBody': 'The server returned a body this app could not parse (it may have streamed the reply). Check the base URL and model name in Settings',
       'avatar.noVariant': 'This outfit has no alternate texture (the assets may be missing — run scripts/restore_media.py)',
       'toast.thinking': 'Ryza is thinking…',
       'toast.ai': 'Replies come from the model you set. No official servers.',
@@ -810,6 +829,14 @@
       'settings.test': 'Test', 'settings.testLlm': 'Test chat',
       'settings.testTts': 'Test voice', 'settings.export': 'Export',
       'settings.import': 'Import', 'settings.reset': 'Reset',
+      'settings.newGame': 'New Game', 'settings.newGameTitle': 'Start a new game?',
+      'settings.newGameOk': 'Erase and restart',
+      'settings.newGameMsg': 'This erases your progress, chat history, memories, save slots and any alarms you have set, then restarts the app. Your settings — endpoint, key, model, voice — are kept.',
+      'settings.resetTitle': 'Reset all settings?',
+      'settings.resetOk': 'Reset them',
+      'settings.resetMsg': 'Every setting goes back to its factory default, including the endpoint, the key and the model. Your game progress is not touched.',
+      'ctx.title': 'Context window',
+      'ctx.dropped': 'Context is full — {n} earlier messages will be dropped from this turn.',
       'settings.lang': 'UI language', 'settings.volume': 'Volume',
       'settings.textSpeed': 'Text speed (ms/char)',
       'settings.voice': 'Voice',
@@ -1035,7 +1062,7 @@
       'settings.fishModel': 'Fish engine model',
       'settings.fishModel.hint': 'Engine id, separate from the voice id. Empty = chosen from the endpoint: s2.1-pro-free (free tier) on the official api.fish.audio, fishaudio-s21pro-flash on the older Open API.',
       'settings.fishVoice': 'Fish voice ID',
-      'settings.fishVoice.hint': 'Paste the id of a voice you created on fish.audio. Empty uses the API\'s own default voice (verified on the official endpoint), or auto-clones from the local Ryza prologue audio on the older Open API.',
+      'settings.fishVoice.hint': 'Paste the id of a voice you created on fish.audio. The clone button builds one from the local Ryza prologue audio on either endpoint; empty uses the API\'s own default voice (verified on the official endpoint).',
       'settings.fishVoiceAsmr': 'Fish ASMR voice ID',
       'settings.fishVoiceAsmr.hint': 'ASMR mode speaks with this voice (the whisper register). Empty = the same voice as every other mode.',
       'settings.fetchVoices': 'Fetch voice list',
@@ -1091,7 +1118,7 @@
     'nav.alarm': '鬧鐘', 'nav.chara': '角色設定', 'nav.skin': '服裝',
     'nav.memory': '回憶', 'nav.settings': '設定',
     'world.title': '世界地圖', 'world.here': '在此地', 'world.current': '目前位置',
-    'quest.title': '委託', 'alarm.title': '鬧鐘', 'chara.title': '角色設定',
+    'quest.title': '委託', 'alarm.title': '鬧鐘', 'chara.title': '角色設定', 'chara.player': '你（玩家設定）',
     'skin.title': '服裝', 'memory.title': '回憶', 'settings.title': '設定',
     'toast.saved': '已儲存', 'toast.copied': '已複製',
     'toast.needKey': '請先在設定裡填寫 API Key',
@@ -1105,6 +1132,7 @@
     'toast.llmFail': '對話失敗：', 'toast.ttsFail': '語音合成失敗：',
     'api.timeout': '請求逾時：端點沒有回應（請核對設定裡的介面地址與模型名）',
     'api.net': '連不上這個介面地址（網址寫錯、跨域被拒，或本機服務沒開）',
+    'api.badBody': '伺服器回傳的內容無法解析（可能被當成串流回傳）。請核對介面地址，或換一個模型',
     'avatar.noVariant': '這套服裝沒有對應的變體貼圖（素材可能沒還原：先跑 scripts/restore_media.py）',
     'toast.thinking': '萊莎正在思考…',
     'settings.lang': '介面語言', 'settings.volume': '音量',
@@ -1144,6 +1172,18 @@
     'settings.erase': '抹除全部本地資料',
     'settings.eraseMsg': '對話紀錄、任務進度、設定等所有資訊都會消失，且無法恢復。',
     'settings.eraseOk': '全部刪除',
+    /* The button row is Export / Import / New Game / Reset, so all four sit
+       side by side. Without these, the two added here would show as simplified
+       Chinese next to Traditional neighbours. */
+    'settings.export': '匯出設定', 'settings.import': '匯入設定',
+    'settings.reset': '恢復預設',
+    'settings.newGame': '新遊戲', 'settings.newGameTitle': '開始新遊戲？',
+    'settings.newGameOk': '清除並重新啟動',
+    'settings.newGameMsg': '將清除進度、對話紀錄、記憶、存檔槽和已設定的鬧鐘，然後重新啟動應用程式。設定（介面位址、密鑰、模型、語音）會保留。',
+    'settings.resetTitle': '恢復預設設定？', 'settings.resetOk': '恢復預設',
+    'settings.resetMsg': '這會把所有設定恢復為出廠預設值，包括介面位址、密鑰和模型。遊戲進度不受影響。',
+    'ctx.title': '上下文視窗',
+      'ctx.dropped': '上下文已滿，本輪將丟棄較早的 {n} 則訊息。',
     'talk.retryHint': '連線失敗了', 'talk.retry': '重試',
     'world.lockedToast': '還沒有船，去不了庫肯島以外（完成主線8「造船出海」）',
     'talk.mapMove': '來到：{name}',
@@ -1169,7 +1209,7 @@
      added after this pass */
   T.id = inherit(T.en, {
     'world.here': 'Ada di sini',
-    'chara.title': 'Karakter',
+    'chara.title': 'Karakter', 'chara.player': 'Kamu (setelan pemain)',
     'skin.title': 'Kostum',
     'memory.title': 'Kenangan',
     'toast.saved': 'Tersimpan',
@@ -1180,6 +1220,7 @@
     'toast.ttsFail': 'Sintesis suara gagal: ',
     'api.timeout': 'Waktu permintaan habis: endpoint tidak menjawab (periksa Base URL dan nama model di Pengaturan)',
     'api.net': 'Base URL tidak dapat dihubungi (alamat salah, CORS ditolak, atau server lokal belum berjalan)',
+    'api.badBody': 'Balasan server tidak bisa dibaca (mungkin dikirim sebagai stream). Periksa Base URL dan nama model di Pengaturan',
     'avatar.noVariant': 'Outfit ini tidak punya tekstur alternatif (mungkin aset belum dipulihkan — jalankan scripts/restore_media.py)',
     'toast.thinking': 'Ryza sedang berpikir…',
     'toast.ai': 'Balasan datang dari model yang kamu atur. Tidak lewat server resmi.',
@@ -1256,6 +1297,14 @@
     'settings.export': 'Ekspor',
     'settings.import': 'Impor',
     'settings.reset': 'Atur ulang',
+      'settings.newGame': 'Game Baru', 'settings.newGameTitle': 'Mulai game baru?',
+      'settings.newGameOk': 'Hapus & mulai ulang',
+      'settings.newGameMsg': 'Ini menghapus progres, riwayat chat, memori, slot save, dan alarm yang sudah kamu set, lalu aplikasi dimulai ulang. Setting-mu — endpoint, kunci, model, suara — tetap disimpan.',
+      'settings.resetTitle': 'Reset semua setting?',
+      'settings.resetOk': 'Reset',
+      'settings.resetMsg': 'Semua setting kembali ke nilai awal pabrik, termasuk endpoint, kunci, dan model. Progres game-mu tidak tersentuh.',
+      'ctx.title': 'Jendela konteks',
+      'ctx.dropped': 'Konteks penuh — {n} pesan lama akan dibuang dari giliran ini.',
     'settings.volume': 'Volume',
     'settings.textSpeed': 'Kecepatan teks (ms/karakter)',
     'settings.voice': 'Suara',
@@ -1552,7 +1601,7 @@
     'settings.fishModel': 'Model engine Fish',
     'settings.fishModel.hint': 'Id engine, terpisah dari id suara. Kosong = dipilih sesuai endpoint: s2.1-pro-free (kuota gratis) di api.fish.audio resmi, fishaudio-s21pro-flash di Open API lama.',
     'settings.fishVoice': 'ID suara Fish',
-    'settings.fishVoice.hint': 'Tempel id suara yang dibuat di fish.audio. Kosong = suara bawaan API (sudah diuji di endpoint resmi), atau kloning otomatis dari prolog Ryza lokal di Open API lama.',
+    'settings.fishVoice.hint': 'Tempel id suara yang dibuat di fish.audio. Tombol klon akan membuatnya dari audio prolog Ryza lokal, di endpoint baru maupun lama; kosong = suara bawaan API (sudah diuji di endpoint resmi).',
     'settings.fishVoiceAsmr': 'ID suara Fish untuk ASMR',
     'settings.fishVoiceAsmr.hint': 'Mode ASMR memakai suara ini (register bisikan). Kosong = sama dengan mode lain.',
     'settings.fetchVoices': 'Ambil daftar suara',
@@ -1888,15 +1937,35 @@
     }
   };
 
-  /* NPC display names — ONLY values verified inside the source APK
-     (libapp.so string scan, 2026-09). zh = official zh-TW forms
-     (简体化为逐字转换，非再翻译); anything unverified stays Japanese. */
+  /* NPC display names. ja and en come from the source APK (libapp.so string
+     scan, 2026-09); zh holds the official zh-TW forms, simplified by char
+     conversion (简体化为逐字转换，非再翻译). That scan yielded 18 of them; eight
+     more were read off the publisher's own Traditional Chinese pages
+     (gamecity.com.tw/atelier/ryza/characters.html for lent, boos and kilo;
+     .../ryza2/characters.html for clifford; .../ryza2/subcharacters.html for
+     patricia, zephine and cassandra; .../ryza3/characters.html for kala). Two
+     are left untranslated on purpose rather than guessed: npc_samuel and
+     npc_alberta have no publisher-page Chinese form. Chinese fan sources do
+     give samuel a name, but that is a secondary source, so it stays out until
+     an official one turns up. */
   CONTENT.zh.npc = null;
   var NPC_NAMES = {
+    ja: {
+           'ryza': 'ライザ', 'lent': 'レント', 'klaudia': 'クラウディア', 'tao': 'タオ',
+           'empel': 'アンペル', 'lila': 'リラ', 'boos': 'ボオス', 'moritz': 'モリッツ',
+           'agate': 'アガーテ', 'lumber': 'ランバー', 'karl': 'カール', 'mio': 'ミオ',
+           'samuel': 'ザムエル', 'fressa': 'フレッサ', 'ruberto': 'ルベルト', 'kilo': 'キロ',
+           'romy': 'ロミィ', 'patricia': 'パティ', 'clifford': 'クリフォード', 'serri': 'セリ',
+           'fee': 'フィー', 'volker': 'ヴォルカー', 'zephine': 'ゼフィーヌ', 'dennis': 'デニス',
+           'cassandra': 'カサンドラ', 'kala': 'カラ', 'alberta': 'アルベルタ',
+           'saverio': 'サヴェリオ', 'anna': 'アンナ', 'dort': 'ドルト', 'deadra': 'デアドラ',
+           'federica': 'フェデリーカ', 'dian': 'ディアン', 'korou': '古老' },
     zh: { ryza: '萊莎', karl: '卡爾', tao: '塔奧', mio: '米奧', moritz: '莫里茨',
       empel: '安佩爾', lila: '莉拉', romy: '羅密', serri: '賽莉', dennis: '丹尼斯',
       klaudia: '科洛蒂婭', federica: '菲德麗卡', saverio: '薩維里奧', dian: '迪安',
-      dort: '多爾特', anna: '安娜', volker: '沃爾卡', korou: '古老' },
+      dort: '多爾特', anna: '安娜', volker: '沃爾卡', korou: '古老',
+      lent: '蘭托', boos: '博斯', kilo: '吉洛', patricia: '派翠夏',
+      clifford: '克里佛德', zephine: '潔菲娜', cassandra: '卡珊德拉', kala: '卡菈' },
     en: { ryza: 'Ryza', lent: 'Lent', klaudia: 'Klaudia', tao: 'Tao', empel: 'Empel',
       lila: 'Lila', boos: 'Bos', moritz: 'Moritz', karl: 'Karl', mio: 'Mio',
       samuel: 'Samuel', kilo: 'Kilo', romy: 'Romy', patricia: 'Patricia',
@@ -1912,12 +1981,22 @@
       .replace(/萊/g, '莱').replace(/卡爾/g, '卡尔').replace(/塔奧/g, '塔奥')
       .replace(/米奧/g, '米奥').replace(/安佩爾/g, '安佩尔').replace(/羅密/g, '罗密')
       .replace(/賽莉/g, '赛莉').replace(/科洛蒂婭/g, '科洛蒂娅').replace(/菲德麗卡/g, '费德丽卡')
-      .replace(/薩維里奧/g, '萨维里奥').replace(/多爾特/g, '多尔特').replace(/沃爾卡/g, '沃尔卡');
+      .replace(/薩維里奧/g, '萨维里奥').replace(/多爾特/g, '多尔特').replace(/沃爾卡/g, '沃尔卡')
+      .replace(/蘭托/g, '兰托').replace(/潔菲娜/g, '洁菲娜');
   });
-  ['zh', 'zh-tw', 'en', 'hi', 'id', 'pt-br'].forEach(function (lg) {
-    var dict = (lg === 'zh') ? NPC_ZH_CN : NPC_NAMES.en;
-    if (lg === 'zh-tw') dict = NPC_ZH_TW;
-    if (lg === 'hi' || lg === 'id' || lg === 'pt-br') dict = NPC_NAMES.en;
+  ['ja', 'zh', 'zh-tw', 'en', 'hi', 'id', 'pt-br'].forEach(function (lg) {
+    /* Pick the dict per language. This used to read `(lg === 'zh') ?
+       NPC_ZH_CN : NPC_NAMES.en`, so ja fell through to the English names and
+       every Japanese UI showed "Ryza" instead of ライザ, because the ja list was
+       never consulted even when present. Each language now names its own
+       dict.
+
+       A language absent from this map falls back to NPC_NAMES.en rather than
+       throwing, so a half-finished language still renders names instead of
+       blanking the world map. The cost is that it silently ships English
+       spellings; adding a language to the list above is what opts it in. */
+    var dict = ({ ja: NPC_NAMES.ja, zh: NPC_ZH_CN, 'zh-tw': NPC_ZH_TW,
+                  en: NPC_NAMES.en })[lg] || NPC_NAMES.en;
     if (!CONTENT[lg]) CONTENT[lg] = {};
     Object.keys(dict).forEach(function (k) {
       CONTENT[lg]['npc.' + k] = dict[k];

@@ -206,7 +206,16 @@
       var hasRec = !!Ctor() && !_webSpeechDead;
       var hasCap = !!(_capture && _capture.available && _capture.available()) &&
                    (!_transcriberReady || !!_transcriberReady());
-      if (pref === 'webSpeech') return hasRec ? 'webSpeech' : null;
+      /* A preference is a first choice, never a lock. Forcing `webSpeech` in a
+         host without a recogniser used to return null and leave the whole
+         feature dead: the mic looked broken in the exe, and the player's only
+         clue was a toast per tap. An explicit choice that cannot be honoured
+         still falls back to the engine that can — the switch says which engine
+         goes first, not which one is allowed to exist. */
+      if (pref === 'webSpeech') {
+        if (hasRec) return 'webSpeech';
+        return hasCap ? 'capture' : null;
+      }
       if (pref === 'capture') return hasCap ? 'capture' : null;
       if (hasRec) return 'webSpeech';
       return hasCap ? 'capture' : null;

@@ -52,6 +52,9 @@ Thumbs.db
 
 # scratch (agent working files, never shipped)
 temp/
+# ...and the folder that actually exists. Review briefs and diff dumps land
+# here and are not ignored by temp/ — one 92KB diff was one `git add .` away.
+tmp/
 
 # Maintainer-only notes and extracted dumps (kept locally, not in the public tree).
 docs/AUDIT.md

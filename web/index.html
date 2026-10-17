@@ -26,7 +26,7 @@
      slides in on the right. -->
 <header id="topbar">
   <button class="icon-btn plain" id="btn-menu" title="メニュー" data-i18n-title="nav.menu"><img src="assets/icons/drawer.svg" alt=""></button>
-  <div class="spacer"></div>
+  <div class="spacer topbar-grip"></div>
   <button type="button" id="btn-voice" class="voice-pill" title="音声 / テキスト" data-i18n-title="topbar.voiceMode">
     <canvas id="lottie-voice" width="30" height="30"></canvas><img id="voice-text-ico" class="hidden" src="assets/icons/mode_text.svg" alt=""><span id="voice-pill-label">ボイス</span>
   </button>
@@ -111,6 +111,13 @@
     <div id="retry-bar" class="hidden">
       <span data-i18n="talk.retryHint">连接失败了</span>
       <button class="mini-btn" id="btn-retry" data-i18n="talk.retry">重试</button>
+    </div>
+    <!-- Context meter. Lives on its own row above the input bar so it cannot
+         disturb the pill's flex row. Quiet at rest, amber past 80%, red past
+         95%, and it says how many messages the next send would drop. -->
+    <div id="ctx-meter" title="Context window" data-i18n-title="ctx.title">
+      <span id="ctx-text"></span>
+      <div id="ctx-bar"><i id="ctx-fill"></i></div>
     </div>
     <div id="input-bar">
       <button type="button" class="round-btn speed-btn" id="btn-speed" title="テキスト速度" data-i18n-title="input.speed">×1</button>
@@ -200,6 +207,7 @@
 
 <section id="view-settings" class="view">
   <div class="view-head"><h2 data-i18n="settings.title">设置</h2>
+    <button class="mini-btn danger" id="btn-new-game" data-i18n="settings.newGame">新游戏</button>
     <button class="mini-btn" id="btn-settings-reset" data-i18n="settings.reset">恢复默认</button></div>
   <div class="form-wrap" id="settings-form"></div>
 </section>
@@ -338,6 +346,7 @@
 <script src="js/i18n.js?v=r4"></script>
 <script src="js/api.js?v=r4"></script>
 <script src="js/providers.js?v=1"></script>
+<script src="js/fish.js?v=fish-1"></script>
 <script src="js/turn.js?v=1"></script>
 <script src="js/echo.js?v=1"></script>
 <script src="js/voice.js?v=1"></script>

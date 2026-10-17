@@ -314,8 +314,10 @@ const { Stt, Voice, Api, Config, Providers, Langs } = sandbox;
      'D1 an explicit choice wins even when a recogniser exists');
   ok(withCapture('capture', false, true) === null,
      'D1 capture without a configured endpoint is not offered (no silent dead end)');
-  ok(withCapture('webSpeech', true, false) === null,
-     'D1 forcing the recogniser in a host without one reports unavailable');
+  ok(withCapture('webSpeech', true, false) === 'capture',
+     'D1 forcing the recogniser where there is none still uses the capture engine (the exe, which used to go dead)');
+  ok(withCapture('webSpeech', false, false) === null,
+     'D1 and with no engine at all it is honestly unavailable');
   ok(withCapture('auto', true, true) === 'webSpeech',
      'D1 auto prefers the recogniser when it exists (streaming, zero-config)');
   ok(withCapture('auto', true, false) === 'capture',

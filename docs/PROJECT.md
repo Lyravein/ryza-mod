@@ -33,7 +33,8 @@ scripts/
                         #  sitting_regression.js, welcome_mission_regression.js,
                         #  nsfw_intent_regression.js, voice_regression.js,
                         #  stt_regression.js, crf_import_regression.js,
-                        #  proxy_target_regression.js, electron_storage_regression.js
+                        #  proxy_target_regression.js, electron_storage_regression.js,
+                        #  fish_regression.js, npc_names_regression.js
   build_desktop.ps1
   build_apk.ps1
   setup_android_tools.ps1
@@ -182,6 +183,9 @@ node scripts/electron_storage_regression.js
 node scripts/save_slot_regression.js
 node scripts/transport_error_regression.js
 node scripts/i18n_coverage.js
+node scripts/fish_regression.js
+node scripts/npc_names_regression.js
+node scripts/stream_body_regression.js
 node scripts/layering_check.js --strict
 python scripts/privacy_check.py web
 ```

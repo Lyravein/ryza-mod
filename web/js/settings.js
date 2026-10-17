@@ -32,6 +32,60 @@
      while the toast still said "Saved". app.js no longer declares it. */
   var SAVE_KEY = 'ryza.saves.v1';
 
+  /* One POST here mints a billable voice, so a double click must not start a
+     second one. The button is disabled for the duration and the stored id is
+     kept when the call fails: overwriting it with '' would throw away the
+     voice the user already paid for. */
+  function fishCloneOnce(button) {
+    if (button.disabled) return;
+    button.disabled = true;
+    /* Everything before the chain lives inside this try, because everything
+       before the chain is where a synchronous throw still wedges the button.
+       Two real cases: I18n.t throws on a missing key and App.toast appends to a
+       toast host that may not be in the tree (app.js:28-32 dereferences
+       host.appendChild with no guard); Api.fishCloneVoice() can also throw
+       before it ever builds a promise. A throw in either place used to skip the
+       re-enable below and leave the button dead until the settings page was
+       rebuilt — on the one button that spends money. Re-enabled, then rethrown:
+       swallowing it would hide a broken key or a broken host, which is how this
+       stayed invisible in the first place. */
+    try {
+      App.toast(I18n.t('toast.cloningFish'));
+      return Api.fishCloneVoice().then(function (vid) {
+        Config.set('tts.fishVoice', vid);
+        App.toast(I18n.t('toast.cloneOk'));
+        Settings.buildSettings();
+      }, function (e) {
+        App.toast(I18n.t('toast.cloneFail') + e.message, true);
+      }).then(function () {
+        button.disabled = false;
+      }, function () {
+        /* A .catch() appended after this point would sit downstream of the
+           re-enable above, so a rejected clone would leave the button disabled
+           until the settings page was rebuilt. The failure path has to be the
+           second argument here. */
+        button.disabled = false;
+      });
+    } catch (e) {
+      button.disabled = false;
+      throw e;
+    }
+  }
+
+  /* The clone row: one button, whose handler is fishCloneOnce above. Kept as
+     its own function so boot_smoke can find the button in the tree the real
+     buildSettings() produces and click it three times. */
+  function fishVoiceSection(w) {
+    var row = document.createElement('div');
+    row.className = 'btn-row';
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'btn';
+    btn.textContent = I18n.t('settings.cloneFish');
+    btn.onclick = function () { fishCloneOnce(btn); };
+    row.appendChild(btn);
+    w.appendChild(row);
+  }
+
   var Settings = {
     buildSettings: function () {
       var w = document.getElementById('settings-form');
@@ -215,23 +269,7 @@
         bFFetch.onclick = function () { App._fetchFishVoices(); };
         fFetch.appendChild(bFFetch);
         w.appendChild(fFetch);
-        var frow = document.createElement('div');
-        frow.className = 'btn-row';
-        var fclone = document.createElement('button');
-        fclone.type = 'button'; fclone.className = 'btn';
-        fclone.textContent = T('settings.cloneFish');
-        fclone.onclick = function () {
-          App.toast(T('toast.cloningFish'));
-          Api.fishCloneVoice().then(function (vid) {
-            Config.set('tts.fishVoice', vid);
-            App.toast(T('toast.cloneOk'));
-            Settings.buildSettings();
-          }).catch(function (e) {
-            App.toast(T('toast.cloneFail') + e.message, true);
-          });
-        };
-        frow.appendChild(fclone);
-        w.appendChild(frow);
+        fishVoiceSection(w);
         App._field(w, T('settings.styleHint'), Config.section('tts').styleHint,
           function (v) { Config.set('tts.styleHint', v); },
           { hint: T('settings.styleHint.hint') });
@@ -566,7 +604,7 @@
       var T = function (k) { return I18n.t(k); };
       var c = Config.section('chara'), p = Config.section('profile');
 
-      App._title(w, 'ライザ（キャラ設定）');
+      App._title(w, T('chara.title'));
       App._field(w, T('chara.personality'), c.personality,
         function (v) { Config.set('chara.personality', v); });
       App._field(w, T('chara.likes'), c.likes,
@@ -583,7 +621,7 @@
         function (v) { Config.set('chara.systemPromptOverride', v); },
         { multi: true, hint: T('chara.override.hint') });
 
-      App._title(w, 'あなた（プレイヤー設定）');
+      App._title(w, T('chara.player'));
       App._field(w, T('onb.name'), p.name,
         function (v) { Config.set('profile.name', v); });
       App._field(w, T('onb.birthday'), p.birthday,

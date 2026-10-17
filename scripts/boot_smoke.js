@@ -27,9 +27,24 @@ const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8');
 const IDS = new Set();
 for (const m of html.matchAll(/id="([^"]+)"/g)) IDS.add(m[1]);
 
+/* Walk the element tree the app builds. makeEl() records its children (added
+   for the clone-button guard: the handler has to be found on the element
+   buildSettings() really produces, not on a stand-in). */
+function walk(node, acc) {
+  acc = acc || [];
+  (node.children || []).forEach(function (c) { acc.push(c); walk(c, acc); });
+  return acc;
+}
+
 function makeEl(id) {
   const el = {
-    id, innerHTML: '', textContent: '', value: '', disabled: false, style: {},
+    id, _html: '',
+    /* innerHTML really has to drop the children: buildSettings() clears the
+       form that way, and a fake that keeps the old tree makes walk() hand back
+       the stale, still-disabled button from the previous build. */
+    get innerHTML() { return this._html; },
+    set innerHTML(v) { this._html = String(v); this.children.length = 0; },
+    textContent: '', value: '', disabled: false, style: {},
     src: '', title: '',
     classList: {
       _s: new Set(),
@@ -39,7 +54,12 @@ function makeEl(id) {
       contains(c) { return this._s.has(c); }
     },
     setAttribute() {}, getAttribute() { return null; },
-    appendChild() {}, removeChild() {}, remove() {}, focus() {},
+    children: [],
+    appendChild(c) { this.children.push(c); return c; },
+    removeChild(c) {
+      const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); return c;
+    },
+    remove() {}, focus() {},
     querySelector(sel) { return makeEl(id + sel); },
     querySelectorAll() { return []; },
     /* Listeners are recorded instead of dropped so the audio failure paths can
@@ -484,6 +504,152 @@ for (const f of ['util.js', 'config.js', 'i18n.js', 'api.js', 'providers.js', 't
       ok(sandbox.App._checkStorage(true) === true, 'and it stays reported on the next check');
       localStorage.setItem = realSet;
       ok(sandbox.App._checkStorage(true) === false, 'freeing space clears the flag');
+    }
+    /* ---- the clone button cannot be started twice (it mints a billable
+       voice per POST). Driven through the real Settings.buildSettings(), so
+       this also proves the button is still wired: the handler is found by
+       walking the tree buildSettings() actually produces. The TTS section only
+       renders for the fish provider, so the test selects it first. */
+    {
+      const ttsWas = sandbox.Config.section('tts').provider;
+      sandbox.Config.set('tts.provider', 'fish');
+      const toastsBefore = sandbox.document.getElementById('toast-host').children.length;
+      sandbox.Settings.buildSettings();
+      const form = sandbox.document.getElementById('settings-form');
+      const texts = walk(form).map(function (n) { return String(n.textContent); });
+      const clone = walk(form)
+        .filter((n) => n.textContent === sandbox.I18n.t('settings.cloneFish'))[0];
+      ok(texts.indexOf(sandbox.I18n.t('settings.cloneFish')) >= 0,
+         'the Fish provider section renders buildSettings()');
+      ok(!!clone && typeof clone.onclick === 'function',
+         'the Fish clone button exists and carries a handler');
+      const start = sandbox.Api.fishCloneVoice;
+      let calls = 0;
+      sandbox.Api.fishCloneVoice = () => { calls++; return new Promise(() => {}); };
+      clone.onclick();
+      clone.onclick();                       /* the double click under test */
+      clone.onclick();
+      ok(calls === 1, 'three clicks on the clone button start one clone, not three');
+      ok(clone.disabled === true,
+         'and the button stays disabled while that clone is in flight');
+      const hosts = sandbox.document.getElementById('toast-host');
+      ok(hosts.children.length > toastsBefore,
+         'the in-flight clone said so (a toast was pushed)');
+
+      /* A failed clone must give the button back. This needs a fresh button:
+         the one above is still waiting on a request that never settles, which
+         is the in-flight state being tested, not a settled failure. */
+      const freshButton = function () {
+        sandbox.Settings.buildSettings();
+        const f = sandbox.document.getElementById('settings-form');
+        return walk(f).filter((n) => n.textContent === sandbox.I18n.t('settings.cloneFish'))[0];
+      };
+      const failed = freshButton();
+      sandbox.Api.fishCloneVoice = () => Promise.reject(new Error('402 额度不足'));
+      failed.onclick();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      ok(failed.disabled === false,
+         'a failed clone re-enables the button so the user can try again');
+      calls = 0;
+      sandbox.Api.fishCloneVoice = () => { calls++; return new Promise(() => {}); };
+      failed.onclick();
+      await new Promise((r) => setTimeout(r, 0));
+      ok(calls === 1, 'and the retry after that failure does start a new clone');
+
+      /* The guard must also hold across separated clicks, not just a burst of
+         three in the same synchronous task: a user can click once, wait, then
+         click again while the first request is still open. */
+      const later = freshButton();
+      let held = 0;
+      sandbox.Api.fishCloneVoice = () => { held++; return new Promise(() => {}); };
+      later.onclick();
+      await new Promise((r) => setTimeout(r, 5));
+      later.onclick();                       /* a later click, same in-flight call */
+      ok(held === 1 && later.disabled === true,
+         'a second click in a later task does not start a second billable clone');
+
+      /* The success path can throw as well: its handler calls Config.set,
+         App.toast and buildSettings, and a throw in any of them rejects the
+         chain. A lone re-enable would be skipped and the button would stay
+         locked on the one screen where the clone actually worked. */
+      const threw = freshButton();
+      const realBuild = sandbox.Settings.buildSettings;
+      let boom = 0;
+      sandbox.Api.fishCloneVoice = () => Promise.resolve('voiceid-from-throw-test');
+      sandbox.Settings.buildSettings = function () {
+        if (boom++ === 0) throw new Error('boom in the success handler');
+        return realBuild.apply(sandbox.Settings, arguments);
+      };
+      threw.onclick();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      ok(threw.disabled === false,
+         'a throw in the success handler does not leave the clone button locked');
+      sandbox.Settings.buildSettings = realBuild;
+
+      /* The failure handler itself can throw: it calls App.toast with a
+         translated string, and I18n.t throws when a key is missing. Under the
+         earlier .catch() shape this left the button locked, which is why the
+         re-enable now carries a failure path of its own. */
+      const brokeHandler = freshButton();
+      const realToast = sandbox.App.toast;
+      let toasts = 0;
+      sandbox.Api.fishCloneVoice = () => Promise.reject(new Error('rejected'));
+      sandbox.App.toast = function () {
+        toasts++;
+        /* The first toast is the synchronous "cloning now" line; the second is
+           the one the failure handler pushes, and that is the throw under test. */
+        if (toasts === 2) throw new Error('boom in the failure handler');
+        return realToast.apply(sandbox.App, arguments);
+      };
+      brokeHandler.onclick();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      ok(brokeHandler.disabled === false,
+         'a throw in the failure handler still gives the button back');
+      sandbox.App.toast = realToast;
+
+      /* And the happy path has to hand the button back as well, or the guard
+         turns a working button into a one-shot: the success handler rebuilds
+         the settings page, so a missing re-enable there is invisible until the
+         user comes back to the same screen. */
+      const okBtn = freshButton();
+      sandbox.Api.fishCloneVoice = () => Promise.resolve('voiceid-from-ok-test');
+      okBtn.onclick();
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      ok(okBtn.disabled === false,
+         'a successful clone hands the button back too');
+
+      /* The throws before the chain. This is the case the earlier tests could
+         not see: every one of them made a handler throw from inside the
+         promise chain, where the re-enable paths live. The two statements
+         between `button.disabled = true` and Api.fishCloneVoice() run
+         synchronously, and a throw in either one never reaches the chain at
+         all. Assert both directions — the button comes back AND the error is
+         not swallowed — because catching it silently would hide the broken key
+         or the missing toast host that caused it. These two must run before the
+         tts.provider restore below: the clone row only exists while the
+         provider is fish. */
+      const preToast = freshButton();
+      sandbox.App.toast = function () { throw new Error('boom in the pre-chain toast'); };
+      let preToastThrew = null;
+      try { preToast.onclick(); } catch (e) { preToastThrew = e; }
+      ok(preToast.disabled === false && preToastThrew !== null,
+         'a throw in the pre-chain toast unlocks the button and still surfaces');
+      sandbox.App.toast = realToast;
+
+      const preCall = freshButton();
+      sandbox.Api.fishCloneVoice = function () { throw new Error('boom before the promise exists'); };
+      let preCallThrew = null;
+      try { preCall.onclick(); } catch (e) { preCallThrew = e; }
+      ok(preCall.disabled === false && preCallThrew !== null,
+         'a throw before the promise exists unlocks the button and still surfaces');
+
+      sandbox.Api.fishCloneVoice = start;
+      sandbox.Config.set('tts.provider', ttsWas);
+      sandbox.Settings.buildSettings();
     }
   } catch (e) {
     bad('runtime: ' + (e && e.stack || e));

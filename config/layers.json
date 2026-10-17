@@ -85,6 +85,8 @@
     "alarm": "features",
     "api": "io",
     "providers": "io",
+    "_comment_fish": "Fish Audio 表达力：把角色的 [指令]（情绪/模式）与 *动作* 标记改写进送去合成的文本。纯字符串处理，不碰 DOM/网络/渲染状态；情绪由 api.js 通过参数传入，故本文件既不读 Avatar 也不读 Config。",
+    "fish": "io",
     "protocol": {
       "layer": "io",
       "planned": true
@@ -136,6 +138,7 @@
     }
   ],
   "globals": {
+    "fish": ["Fish"],
     "util": [
       "Util"
     ],
