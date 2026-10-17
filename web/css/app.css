@@ -127,6 +127,17 @@ input,select,textarea{font:inherit;color:inherit}
 body.shell-electron #topbar{-webkit-app-region:drag}
 body.shell-electron #topbar button,
 body.shell-electron #topbar .hud-chip{-webkit-app-region:no-drag}
+/* The empty middle of the HUD strip is the only place a frameless window can
+   be picked up by, and nothing said so: it read as unused padding, which is
+   why the app looked like it had no way to be moved. The dot grip is the
+   affordance. Electron-only — a browser or APK build has no window to drag,
+   and the same strip there is just breathing room. */
+body.shell-electron #topbar .topbar-grip{align-self:stretch;position:relative}
+body.shell-electron #topbar .topbar-grip::before{content:"";position:absolute;
+  left:50%;top:50%;width:24px;height:8px;margin:-4px 0 0 -12px;pointer-events:none;
+  background-image:radial-gradient(circle,var(--dim) 1px,transparent 1px);
+  background-size:6px 4px;opacity:.45;transition:opacity .15s}
+body.shell-electron #topbar .topbar-grip:hover::before{opacity:.85}
 #winctl{display:flex;gap:5px;align-items:center;flex:0 0 auto}
 .win-btn{width:32px;height:32px;font-size:13px;color:var(--dim);border-radius:9px}
 #win-pin.on{background:rgba(232,180,92,.28);border-color:var(--gold);color:var(--gold)}
@@ -295,6 +306,24 @@ body.side-open #quick-btns{opacity:0;pointer-events:none;transition:opacity .15s
 
 /* input row — ×N speed circle, pill input with the ✳ (new talk) glyph,
    orange round send (official bottom bar) */
+/* Context meter. Dim at rest so it does not compete with the avatar, amber when
+   the bar passes 80% of the trim budget, red past 95% OR whenever turns are
+   already being dropped (app.js sets .crit off f.dropped, not off the
+   percentage — a history shedding 76 of 100 turns can still measure 8%). */
+#ctx-meter{display:flex;align-items:center;gap:8px;flex:0 0 auto;
+  padding:2px 2px 0;font-size:10.5px;color:var(--dim);opacity:.55;
+  transition:opacity .2s}
+#ctx-meter.warn{opacity:1;color:var(--gold)}
+#ctx-meter.crit{opacity:1;color:#e2705f}
+#ctx-bar{flex:1;height:3px;border-radius:999px;background:rgba(255,255,255,.09);
+  overflow:hidden}
+#ctx-fill{display:block;height:100%;width:0;border-radius:999px;
+  background:currentColor;transition:width .25s}
+/* Fixed width so the bar does not jitter as the "3k / 33k" label changes
+   length between turns — a meter that resizes under you is unreadable. */
+#ctx-text{flex:0 0 auto;min-width:62px;font-variant-numeric:tabular-nums;
+  letter-spacing:.2px}
+
 #input-bar{display:flex;gap:9px;align-items:center;padding:8px 0 2px;flex:0 0 auto}
 .speed-btn{width:44px;height:44px;font-size:13.5px}
 .input-pill{flex:1;display:flex;align-items:center;min-width:0;
@@ -542,6 +571,9 @@ input[type=range]{width:100%;accent-color:var(--gold)}
   border-radius:99px;transition:width .3s ease}
 .qacts{display:flex;gap:8px;flex-wrap:wrap}
 .mini-btn.primary{background:rgba(232,180,92,.28);border-color:var(--gold);color:var(--gold);font-weight:600}
+/* Same red as .btn.danger, so the destructive action in a row of neutral ones
+   is obvious before it is pressed — this one cannot be undone. */
+.mini-btn.danger{background:rgba(220,90,70,.16);border-color:rgba(220,90,70,.3);color:#ff9a86}
 .qship{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--dim);margin-bottom:12px}
 .qship img{width:16px;height:16px;filter:invert(85%) sepia(15%) saturate(400%) hue-rotate(330deg)}
 .qhist-title{font-size:12px;color:var(--gold);letter-spacing:.08em;margin:14px 0 6px}

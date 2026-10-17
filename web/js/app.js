@@ -873,11 +873,49 @@
           App.renderMemory();
         });
       };
-      document.getElementById('btn-settings-reset').onclick = function () {
-        if (confirm('恢复所有设置为默认值？')) {
-          Config.reset(); App.buildSettings(); App.buildCharaForm();
-          App.toast(I18n.t('toast.saved'));
-        }
+      var ngBtn = document.getElementById('btn-new-game');
+      if (ngBtn) ngBtn.onclick = function () {
+        App.openModal({
+          title: I18n.t('settings.newGameTitle'),
+          okLabel: I18n.t('settings.newGameOk'),
+          build: function (body) {
+            var p = document.createElement('p');
+            p.className = 'onb-sub';
+            p.textContent = I18n.t('settings.newGameMsg');
+            body.appendChild(p);
+          },
+          onOk: function () {
+            /* The wipe is the whole point, so it must not be a two-tap undo.
+               The reload is what makes it a real new game: onboarding runs
+               again and every module re-reads an empty store instead of the
+               copy it is still holding in memory. */
+            Config.newGame();
+            location.reload();
+          }
+        });
+      };
+      /* Same modal as New Game, five lines above: one destructive action on a
+         page should not reach for a raw browser confirm() while its neighbour
+         uses the app's own. This one also had its prompt hardcoded in Chinese,
+         so it asked an English or Indonesian player to confirm in a language
+         they had not chosen — and this button throws away the endpoint and the
+         key, so guessing "yes" costs more than the New Game wipe does. */
+      var rsBtn = document.getElementById('btn-settings-reset');
+      if (rsBtn) rsBtn.onclick = function () {
+        App.openModal({
+          title: I18n.t('settings.resetTitle'),
+          okLabel: I18n.t('settings.resetOk'),
+          build: function (body) {
+            var p = document.createElement('p');
+            p.className = 'onb-sub';
+            p.textContent = I18n.t('settings.resetMsg');
+            body.appendChild(p);
+          },
+          onOk: function () {
+            Config.reset(); App.buildSettings(); App.buildCharaForm();
+            App.toast(I18n.t('toast.saved'));
+          }
+        });
       };
     },
 
@@ -885,6 +923,69 @@
     _viewIsTalk: function () {
       var v = document.getElementById('view-talk');
       return !!(v && v.classList.contains('active'));
+    },
+
+    /* How full the context window is, for the meter under the input bar.
+       Api.previewContext runs the same builder chat() will run, so this cannot
+       drift from what actually ships — the failure it exists to prevent is the
+       character quietly forgetting because a trim nobody was told about.
+       `pending` is the text about to be sent; pass '' to measure as it stands.
+       Returns the fit so the caller can react to a drop without recomputing. */
+    /* `cue` is not optional decoration: buildTurn hands it to
+       LongTerm.promptBlock(), which selects long-term entries by keyword and
+       date. Omitting it here made the meter measure a different system prompt
+       than chat() builds — measurably so, 12 different entries and a ~15%
+       error in the reported trim point. App.say passes `cue: text`; this must
+       match it field for field, which is why the two calls look alike. */
+    _ctxFit: function (pending) {
+      var st = Config.section('state');
+      try {
+        return Api.previewContext(App.history, {
+          mode: st.mode, style: st.style,
+          cue: pending || '',
+          rpgContext: App._rpgContext(),
+          sceneSection: App._sceneContext(),
+          nsfwSection: window.Nsfw ? Nsfw.screenFact() : ''
+        }, pending || '');
+      } catch (e) {
+        /* A meter that quietly vanishes is the silent-degraded-panel failure
+           mode; leave a trace so it is diagnosable instead. */
+        if (window.console && console.warn) console.warn('[ctx-meter]', e);
+        return null;
+      }
+    },
+
+    _renderCtxMeter: function (pending) {
+      var el = document.getElementById('ctx-meter');
+      if (!el) return null;
+      var f = App._ctxFit(pending);
+      if (!f || !(f.budget > 0)) { el.style.display = 'none'; return f; }
+      el.style.display = '';
+      /* Two different numbers, deliberately. The bar is headroom against the
+         trim point (budget = window minus the reply reserve), so it is the
+         thing that predicts a drop. The label is the raw window fill. They
+         cannot share a percentage and both be true: on a 2K window the reserve
+         is half the budget, so a label reading 47% sat next to a bar at 95%. */
+      var pct = Math.max(0, Math.min(100, (f.used / f.budget) * 100));
+      var fill = document.getElementById('ctx-fill');
+      if (fill) fill.style.width = pct.toFixed(1) + '%';
+      /* Turns already being dropped is the one signal that outranks the
+         percentage: the figures above describe what survives, so a history
+         shedding 76 of 100 turns can still read 8%. */
+      var crit = f.dropped > 0 || pct >= 95;
+      el.classList.toggle('crit', crit);
+      el.classList.toggle('warn', !crit && pct >= 80);
+      var txt = document.getElementById('ctx-text');
+      if (txt) {
+        txt.textContent = Math.round(f.used / 1000) + 'k / ' +
+          Math.round(f.ctx / 1000) + 'k';
+      }
+      var title = I18n.t('ctx.title') + ' — ' + Math.round(pct) + '%';
+      if (f.dropped > 0) {
+        title += ' · ' + I18n.tf('ctx.dropped', '{n}', { n: String(f.dropped) });
+      }
+      el.setAttribute('title', title);
+      return f;
     },
 
     showView: function (name) {
@@ -905,6 +1006,7 @@
       } else {
         Sound.setRoute('talk');
       }
+      if (name === 'talk') App._renderCtxMeter('');
       if (name === 'memory') App.renderMemory();
       if (name === 'skin') { Welcome.milestone('skin'); App.renderSkins(); }
       if (name === 'welcome') Welcome.render(document.getElementById('welcome-body'));
@@ -1346,6 +1448,10 @@
       };
       send.onclick = go;
       input.onkeydown = function (e) { if (e.key === 'Enter') go(); };
+      /* Live fill while typing: the point of the meter is knowing *before* you
+         send. estMessages walks at most historyTurns*2 messages, so this is
+         cheap enough to run per keystroke without a debounce. */
+      input.oninput = function () { App._renderCtxMeter(input.value); };
       var hitEl = document.getElementById('avatar-hit');
       hitEl.onclick = function (ev) {
         /* A drag ends with a click event; the pointer is not a tap then. */
@@ -1726,6 +1832,7 @@
         },
         onOk: function () {
           App.history = [];
+          App._renderCtxMeter('');
           if (window.Nsfw) Nsfw.reset();
           App._pages = []; App._pageSel = -1;
           var dots = document.getElementById('log-dots');
@@ -1777,6 +1884,14 @@
       if (window.LongTerm) {
         try { LongTerm.note('user', text); } catch (e) {}
       }
+      /* Warn before the trim bites, not after. Rendering with the pending text is
+         the same number chat() will compute, so this fires on the turn the
+         history actually starts losing turns — previously silent. */
+      var ctxFit = App._renderCtxMeter(text);
+      if (ctxFit && ctxFit.dropped > 0) {
+        App.toast(I18n.tf('ctx.dropped', '上下文已满，本轮将丢弃较早的 {n} 条消息。',
+          { n: String(ctxFit.dropped) }));
+      }
       Api.chat(App.history, text, {
         mode: st.mode, style: st.style,
         epoch: turnEpoch,
@@ -1817,6 +1932,7 @@
             role: 'assistant',
             content: Api.formatHistoryReply(reply.text)
           });
+          App._renderCtxMeter('');
           App._sayReply(reply, turnEpoch);
           /* 助手这一轮进长期记忆的待归纳队列（被 STALE 丢弃的回复不会走到这里） */
           if (window.LongTerm) {
@@ -2266,11 +2382,15 @@
       var form = document.getElementById('modal');
       var body = document.getElementById('modal-body');
       document.getElementById('modal-title').textContent = opts.title || '';
-      document.getElementById('modal-ok').textContent = opts.okLabel || I18n.t('form.ok');
       document.getElementById('modal-cancel').textContent = I18n.t('form.cancel');
       body.innerHTML = '';
       (opts.build || function () {})(body);
       App.applyI18n(form);
+      /* After applyI18n, deliberately. #modal-ok carries data-i18n="form.ok",
+         so the translation pass above rewrites it back to the generic "OK" —
+         which silently swallowed the custom okLabel of every caller that had
+         one (talk.resetOk, settings.eraseOk, ...). Set it last. */
+      document.getElementById('modal-ok').textContent = opts.okLabel || I18n.t('form.ok');
       scrim.classList.remove('hidden');
 
       var cancel = function () {

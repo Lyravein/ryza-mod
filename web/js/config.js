@@ -336,6 +336,48 @@
       data = deepMerge(DEFAULTS, {});
       Config.save();
     },
+    /* New Game: wipe the RUN, keep the SETUP.
+
+       Config.reset() next door is the wrong tool here — it hands the whole
+       blob back to DEFAULTS, which throws away the endpoint, the key and the
+       model the player just spent an afternoon fixing, and those live in the
+       same JSON as the day counter. So this one is explicit about the split:
+       the sections below are the setup and must survive untouched, everything
+       else in the blob is the run and goes back to defaults.
+
+       The per-module stores are wiped here rather than by their owners
+       because the split has to be decided in ONE place. app.js:9 says
+       exactly why: the save-slot key once lived in a closure in that file,
+       invisible to the code that needed it, and the slots broke. The list
+       below is therefore the authority — a module that starts persisting a
+       run's state under a new ryza.* key must be added here. */
+    newGame: function () {
+      var SETUP = ['llm', 'memory', 'stt', 'tts', 'voice', 'chara', 'audio', 'app'];
+      var i, k;
+      /* progress that lives inside the settings blob: dropped, then refilled
+         from DEFAULTS so Config.section('state') keeps its shape instead of
+         coming back undefined */
+      var fresh = deepMerge(DEFAULTS, {});
+      for (k in data) {
+        if (SETUP.indexOf(k) === -1) delete data[k];
+      }
+      for (k in fresh) {
+        if (SETUP.indexOf(k) === -1) data[k] = fresh[k];
+      }
+      /* progress that each module owns outright */
+      var RUN_KEYS = ['ryza.game.v1',    /* Game: stage, style, flags        */
+                      'ryza.memory.v1',   /* App: the conversation transcript */
+                      'ryza.longmem.v1',  /* Memory: the two-layer recall    */
+                      'ryza.longterm.v1', /* Longterm: standing facts         */
+                      'ryza.daily.v1',    /* Daily: the day roll-over         */
+                      'ryza.saves.v1',    /* Save slots (settings.js)         */
+                      'ryza.alarms.v1'];  /* Alarm: Ryza's daily routine      */
+      for (i = 0; i < RUN_KEYS.length; i++) {
+        try { localStorage.removeItem(RUN_KEYS[i]); } catch (e) {}
+      }
+      Config.save();
+      return RUN_KEYS;
+    },
     /* Whole-settings import/export, used by the settings screen. */
     exportJSON: function () { return JSON.stringify(data, null, 2); },
     importJSON: function (text) {
