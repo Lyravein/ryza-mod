@@ -139,7 +139,9 @@
       Daily.s.lastDate = todayStr();
       if (Daily.s.claimedDays.indexOf(idx) === -1) Daily.s.claimedDays.push(idx);
       Daily.save();
-      Game.remember('連続ログイン ' + Daily.streak() + ' 日目：' + msgs.join('、'));
+      Game.remember(I18n.tf('dl.streak', '連続ログイン {n} 日目：{rw}', {
+        n: Daily.streak(), rw: msgs.join(L('list.sep', '、'))
+      }));
       if (_celebrate) { try { _celebrate(); } catch (e) { /* never break the claim */ } }
       return { ok: true, day: idx + 1, text: msgs.join('、') };
     },

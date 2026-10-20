@@ -520,7 +520,8 @@
           var hasKey = !!(window.Config && Config.llmReady());
           if (hasKey) notify(I18n.t('toast.questGen'));
           Quests.generate(hasKey).then(function () {
-            notify(I18n.t('quest.newOk') + '「' + Quests.titleOf(Quests.active()) + '」');
+            notify(I18n.t('quest.newOk') + ' ' + TF('ui.quoted', '「{title}」',
+              { title: Quests.titleOf(Quests.active()) }));
             Quests.render(root, hooks);
           });
         };

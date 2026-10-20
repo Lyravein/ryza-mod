@@ -770,7 +770,8 @@
         var hasKey = Config.llmReady();
         if (hasKey) App.toast(I18n.t('toast.questGen'));
         Quests.generate(hasKey).then(function (q) {
-          App.toast(I18n.t('quest.newOk') + '「' + q.title + '」');
+          App.toast(I18n.t('quest.newOk') + ' ' + I18n.tf('ui.quoted', '「{title}」',
+            { title: Quests.titleOf(q) }));
           Quests.render(document.getElementById('quest-list'), {});
         });
       };
@@ -1159,7 +1160,8 @@
       }));
       var npcs = World.npcsAt(stageId, st.day || 1);
       var names = Game.meetCharas(npcs, st.day);
-      if (names.length) Game.remember(names.join('、') + ' と出会った。');
+      if (names.length) Game.remember(I18n.tf('mem.met', '{names} と出会った。',
+        { names: names.join(I18n.t('list.sep')) }));
       Quests.progressEvent('explore');
       App.showView('talk');
     },
@@ -1172,7 +1174,7 @@
       Config.set('state.tod', tod);
       if (prev === 'ngt' && tod === 'mor' && s.stage === HOME_STAGE) {
         Game.refill();
-        Game.remember('安全なおうちでぐっすり眠った。');
+        Game.remember(I18n.t('mem.sleep'));
         App.toast(I18n.t('stamina.slept'));
       }
       App._loadSceneFor(s.stage, tod);
@@ -1262,7 +1264,7 @@
       }
       if (fromTod === 'ngt' && nextTod === 'mor' && dest === HOME_STAGE) {
         Game.refill();
-        Game.remember('安全なおうちでぐっすり眠った。');
+        Game.remember(I18n.t('mem.sleep'));
         App.toast(I18n.t('stamina.slept'));
       }
       if (nextTod !== fromTod) Config.set('state.tod', nextTod);
@@ -1546,7 +1548,7 @@
       App._loadSceneFor(HOME_STAGE, tod);
       Sound.setPlace(HOME_STAGE, tod, World.backgroundFor(HOME_STAGE));
       Game.refill();
-      Game.remember('安全なおうちでぐっすり眠った。');
+      Game.remember(I18n.t('mem.sleep'));
       document.getElementById('overlay-faint').classList.add('hidden');
       App.showView('talk');
       App.toast(I18n.t('stamina.slept'));
@@ -1554,7 +1556,7 @@
     },
 
     _onSailed: function () {
-      Game.remember('船でクーケン島を出航した！');
+      Game.remember(I18n.t('mem.sailed'));
       App.toast(I18n.t('toast.sailed'));
       App.showView('world');
       App.renderWorld();
@@ -1619,12 +1621,18 @@
       row(I18n.t('st.exp'), e.into + ' / ' + e.span + '（' + Game.s.exp_total + '）');
       row('G', Game.cheat() ? '∞' : String(Game.s.money));
       var q = Quests.active();
+      /* The status panel is UI, so the title goes through the same lookup the
+         quest screen uses. q.title is the shipped Japanese wording, and
+         reading it directly here printed Japanese under an English "Goal"
+         label. The corner brackets are Japanese punctuation, so they travel
+         with the language rather than sitting in the template. */
       if (q) row(I18n.t('quest.goal'),
-        '「' + App.esc(q.title) + '」 ' + (q.step | 0) + '/' + q.need);
+        I18n.tf('ui.quoted', '「{title}」', { title: App.esc(Quests.titleOf(q)) }) +
+        ' ' + (q.step | 0) + '/' + q.need);
       row(I18n.t('st.met'), String(Game.s.met_charas.length));
       if (Game.s.met_charas.length && window.World && World.npcs) {
         var names = Game.s.met_charas.slice(-12).reverse()
-          .map(function (id) { return World.npcName(id); }).join('、');
+          .map(function (id) { return World.npcName(id); }).join(I18n.t('list.sep'));
         var nr = document.createElement('div');
         nr.className = 'st-mem';
         nr.textContent = names;

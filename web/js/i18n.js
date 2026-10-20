@@ -257,6 +257,8 @@
       'stamina.sleep': '回家睡觉恢复', 'stamina.slept': '睡了一觉，体力全恢复了！',
       'dl.subtitle': '每天回来看看莱莎，连续登录有奖励。',
       'dl.progress': '连续 {n} 天', 'dl.next': '下一站：{r}',
+      'dl.streak': '连续登录第 {n} 天：{rw}', 'list.sep': '、',
+      'ui.quoted': '「{title}」',
       'dl.cta': '领取今日奖励', 'dl.done': '今日已领取', 'dl.already': '今天已经领过啦',
       'dl.got': '获得：',
       'dl.week.mon': '周一', 'dl.week.tue': '周二', 'dl.week.wed': '周三',
@@ -623,6 +625,8 @@
       'stamina.sleep': 'おうちへ帰って寝る', 'stamina.slept': 'ぐっすり眠ってスタミナ全回復！',
       'dl.title': '毎日ログイン', 'dl.subtitle': '毎日あいさつすると連続ログイン報酬がもらえるよ。',
       'dl.progress': '連続 {n} 日', 'dl.next': 'こんかいは：{r}',
+      'dl.streak': '連続ログイン {n} 日目：{rw}', 'list.sep': '、',
+      'ui.quoted': '「{title}」',
       'dl.cta': '今日の報酬をもらう', 'dl.done': '今日はもうもらった！', 'dl.already': '今日はすでに受け取り済み',
       'dl.got': 'ゲット：',
       'dl.week.mon': '月', 'dl.week.tue': '火', 'dl.week.wed': '水',
@@ -989,6 +993,8 @@
       'stamina.sleep': 'Go home and sleep', 'stamina.slept': 'A deep sleep — stamina restored!',
       'dl.subtitle': 'Come say hi every day; streaks pay out.',
       'dl.progress': 'Streak: {n} days', 'dl.next': 'Next: {r}',
+      'dl.streak': 'Login streak day {n}: {rw}', 'list.sep': ', ',
+      'ui.quoted': '“{title}”',
       'dl.cta': 'Claim today', 'dl.done': 'Already claimed', 'dl.already': 'You already claimed today',
       'dl.got': 'Got: ',
       'dl.week.mon': 'Mon', 'dl.week.tue': 'Tue', 'dl.week.wed': 'Wed',
@@ -1153,6 +1159,7 @@
     'nav.daily': '每日登入', 'dl.title': '每日登入',
     'dl.subtitle': '每天回來跟萊莎打個招呼，連續登入有獎勵。',
     'dl.progress': '連續 {n} 天', 'dl.next': '下一站：{r}',
+    'dl.streak': '連續登入第 {n} 天：{rw}',
     'dl.cta': '領取今日獎勵', 'dl.done': '今日已領取', 'dl.already': '今天已經領過啦',
     'dl.got': '獲得：',
     'dl.week.mon': '週一', 'dl.week.tue': '週二', 'dl.week.wed': '週三',
@@ -1543,6 +1550,8 @@
     'stamina.slept': 'Tidur nyenyak — stamina pulih!',
     'dl.subtitle': 'Mampir tiap hari; rentetan membayar.',
     'dl.progress': 'Rentetan: {n} hari',
+    'dl.streak': 'Rentetan login hari ke-{n}: {rw}', 'list.sep': ', ',
+    'ui.quoted': '“{title}”',
     'dl.next': 'Berikutnya: {r}',
     'dl.cta': 'Klaim hari ini',
     'dl.done': 'Sudah diklaim',
@@ -1775,7 +1784,8 @@
       'tut.7': 'まずはあたしとお喋りでもしてリフレッシュしよっ',
       'greet.1': '……やあ、会えたね。', 'greet.n': '……今日も、会えたね。',
       'mem.met': '{names} と出会った。', 'mem.sleep': '安全なおうちでぐっすり眠った。',
-      'mem.cleared': '「{title}」をクリア！ +{exp}EXP / +{money}G', 'mem.lv': 'Lv{lv} reached!',
+      'mem.sailed': '船でクーケン島を出航した！',
+      'mem.cleared': '「{title}」をクリア！ +{exp}EXP / +{money}G', 'mem.lv': 'Lv{lv} になった！',
       'place.area_01': 'クーケン島周辺地域', 'place.area_02': 'クレリア地方', 'place.area_03': 'ネメッド地方',
       'place.area_04': '冥界オーリム', 'place.area_05': '王都周辺地域',
       'place.field_01_001': 'クーケン島', 'place.stage_01_001_04': 'ライザの家',
@@ -1848,6 +1858,7 @@
       'tut.7': '先陪我聊聊天放松一下嘛',
       'greet.1': '……呀，见到你啦。', 'greet.n': '……今天也，见到你啦。',
       'mem.met': '遇见了{names}。', 'mem.sleep': '在安全的家里睡了个好觉。',
+      'mem.sailed': '乘船离开了库肯岛！',
       'mem.cleared': '通关「{title}」！+{exp}经验 / +{money}G', 'mem.lv': '升到 Lv{lv} 了！',
       'place.area_01': '库肯岛周边地区', 'place.area_02': '克莱莉亚地区', 'place.area_05': '王都周边地区',
       'place.field_01_001': '库肯岛', 'place.stage_01_001_04': '莱莎家', 'place.stage_01_002_01': '塔奥家门前',
@@ -1921,6 +1932,7 @@
       'tut.7': 'Let\u2019s chat a bit and refresh first',
       'greet.1': '…Hey, there you are.', 'greet.n': '…There you are again today.',
       'mem.met': 'Met {names}.', 'mem.sleep': 'Slept soundly at the safe home.',
+      'mem.sailed': 'Set sail from Kurken Island!',
       'mem.cleared': 'Cleared "{title}"! +{exp}EXP / +{money}G', 'mem.lv': 'Reached Lv{lv}!',
       'place.area_01': 'Kurken Island Area', 'place.area_02': 'Cleria region',
       'place.field_01_001': 'Kurken Island', 'place.stage_01_001_04': 'Ryza\u2019s Home',
@@ -2030,7 +2042,15 @@
     'place.area_01': '庫肯島周邊地區', 'place.area_02': '克萊莉亞地區', 'place.area_05': '王都周邊地區',
     'place.field_01_001': '庫肯島', 'place.stage_01_001_04': '萊莎家', 'place.stage_01_002_01': '塔奧家門前',
     'item.bottle': '回復藥（草豆）',
-    'input.hint': '點一下，和萊莎聊天', 'input.wake': '點一下叫醒萊莎'
+    'input.hint': '點一下，和萊莎聊天', 'input.wake': '點一下叫醒萊莎',
+    /* mem.* lives in CONTENT, which ships ja/zh/en only, so zh-TW inherits
+       CONTENT.zh verbatim and prints simplified glyphs. Overriding these in the
+       zh-TW inherit() block does NOT work: mergeContent('zh-tw') copies CONTENT.zh
+       over it afterwards. This table is applied after that merge, which is why
+       the pre-existing overrides live here too. */
+    'mem.sleep': '在安全的家裡睡了個好覺。', 'mem.met': '遇見了{names}。',
+    'mem.sailed': '乘船離開了庫肯島！',
+    'mem.cleared': '通關「{title}」！+{exp}經驗 / +{money}G', 'mem.lv': '升到 Lv{lv} 了！'
   };
   Object.keys(ZH_TW_VERBATIM).forEach(function (k) { T['zh-tw'][k] = ZH_TW_VERBATIM[k]; });
 
