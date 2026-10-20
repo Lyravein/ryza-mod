@@ -626,10 +626,13 @@
   /* Official titles, verbatim: ja is the shipped wording, zh/en are our
      translations of those same strings. */
   var WM_MISSION_TEXT = {
-    mission_clear: { ja: 'ミッションを3つクリアしよう', zh: '完成 3 次任务', en: 'Achieve mission 3 times' },
-    touch: { ja: 'ライザを触ってみる', zh: '摸一下莱莎', en: 'Touch Ryza' },
-    talk: { ja: 'キャラと5回会話してみよう', zh: '与角色对话 5 次', en: 'Talk with a character 5 times' },
-    login_bonus: { ja: 'ログインボーナスを受け取ろう', zh: '领取登录奖励', en: 'Get a logged in bonus' }
+    mission_clear: { ja: 'ミッションを3つクリアしよう', zh: '完成 3 次任务', en: 'Achieve mission 3 times',
+      'zh-tw': '完成 3 次任務' },
+    touch: { ja: 'ライザを触ってみる', zh: '摸一下莱莎', en: 'Touch Ryza', 'zh-tw': '摸一下萊莎' },
+    talk: { ja: 'キャラと5回会話してみよう', zh: '与角色对话 5 次', en: 'Talk with a character 5 times',
+      'zh-tw': '與角色對話 5 次' },
+    login_bonus: { ja: 'ログインボーナスを受け取ろう', zh: '领取登录奖励', en: 'Get a logged in bonus',
+      'zh-tw': '領取登入獎勵' }
   };
 
   /* missions[] from masters_bundle, in official priority order (1..12). */
@@ -726,7 +729,8 @@
       Config.set('state.welcome_claimed', c);
       Game.addMoney(WM_GROUP_REWARD.money);
       Game.addExp(WM_GROUP_REWARD.exp);
-      Game.remember('ウェルカムミッション ' + g.title + ' クリア');
+      Game.remember(I18n.tf('wm.cleared', 'ウェルカムミッション「{title}」クリア',
+        { title: g.title }));
       return WM_GROUP_REWARD;
     },
 
@@ -740,8 +744,11 @@
       root.appendChild(hero);
 
       var day = Welcome.dayCount();
-      var lang = 'zh';
-      try { lang = I18n.lang() || 'zh'; } catch (e) {}
+      /* I18n.lang is a plain string property (i18n.js: `lang: 'zh'`,
+         `setLang` assigns to it), not a function. Calling it threw a TypeError
+         that the old empty catch swallowed, so this stayed 'zh' for every
+         locale and the official mission labels always rendered in Chinese. */
+      var lang = (typeof I18n !== 'undefined' && I18n.lang) || 'en';
       var list = document.createElement('div');
       list.className = 'wm-groups';
 
@@ -756,8 +763,8 @@
         head.innerHTML = '<span class="wm-group-title"></span><span class="wm-group-day"></span>';
         head.querySelector('.wm-group-title').textContent = g.title;
         head.querySelector('.wm-group-day').textContent = open
-          ? (done ? '完成' : '进行中')
-          : ('第 ' + g.day + ' 天开放');
+          ? I18n.t(done ? 'wm.done' : 'wm.active')
+          : I18n.tf('wm.unlockDay', '第 {n} 天开放', { n: g.day });
         box.appendChild(head);
 
         var grid = document.createElement('div');
@@ -773,10 +780,11 @@
             (md ? 'tile_base_clear.svg' : (open ? 'tile_base_active.svg' : 'tile_base_locked.svg'));
           tile.querySelector('.wm-ico').src = 'assets/welcome_mission/' + WM_ICON[m.activity] + '.svg';
           var txt = WM_MISSION_TEXT[m.activity] || { ja: m.id, zh: m.id };
-          tile.querySelector('.wm-cap').textContent = txt[lang] || txt.zh || txt.ja;
+          var label = txt[lang] || txt.en || txt.ja;
+          tile.querySelector('.wm-cap').textContent = label;
           /* the official unlock_condition_value is exactly this need */
           tile.querySelector('.wm-prog').textContent = Math.min(got, m.need) + ' / ' + m.need;
-          tile.title = txt.ja;
+          tile.title = label;
           grid.appendChild(tile);
         });
         box.appendChild(grid);
@@ -784,7 +792,7 @@
         if (open && done && !Welcome.groupClaimed(g)) {
           var btn = document.createElement('button');
           btn.className = 'wm-claim';
-          btn.textContent = '受け取る';
+          btn.textContent = I18n.t('wm.claim');
           btn.onclick = function () {
             var r = Welcome.claimGroup(g);
             if (r) { Welcome.render(root); if (_present) { try { _present(r); } catch (e) {} } }
@@ -793,7 +801,7 @@
         } else if (Welcome.groupClaimed(g)) {
           var tag = document.createElement('div');
           tag.className = 'wm-claimed';
-          tag.textContent = '受け取り済み';
+          tag.textContent = I18n.t('wm.claimed');
           box.appendChild(tag);
         }
         list.appendChild(box);
