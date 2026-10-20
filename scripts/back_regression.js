@@ -229,10 +229,12 @@ for (const f of ['util.js', 'config.js', 'i18n.js', 'api.js', 'providers.js',
 }
 
 /* onboarding.js (loaded above) replaces sandbox.Onboarding, so the
-   skip/prologueNext counters in the stub never fire. The real skip() writes
-   Config.set('state.onboardingDone', true) — the durable "finished" flag the
-   app persists — so the assertions read it through this spy. Must be installed
-   AFTER the load loop: sandbox.Config does not exist until config.js runs. */
+   skip/prologueNext counters in the stub never fire. The real code runs
+   instead, and it is observed through the DOM plus this spy on Config.set:
+   neither skip() nor prologueNext() may write 'state.onboardingDone', because
+   that flag is what the tutorial writes when the intro is genuinely finished.
+   Must be installed AFTER the load loop: sandbox.Config does not exist until
+   config.js runs. */
 sandbox.Config_set_calls = 0;
 if (sandbox.Config && sandbox.Config.set) {
   const orig = sandbox.Config.set;
@@ -383,17 +385,23 @@ const R = sandbox.RyzaShell;
   /* 6. onboarding overlays route to their own dismiss, not a raw class flip */
   onboardingSkipped = 0; prologueNexted = 0; sandbox.Config_set_calls = 0;
   document.getElementById('overlay-onboard').classList.remove('hidden');
+  document.getElementById('overlay-prologue').classList.add('hidden');
   ok(R.handleBack() === true, 'onboarding overlay: back consumed');
-  ok(sandbox.Config_set_calls === 1,
-     'back calls Onboarding.skip (marks onboarding done)');
+  /* skip() is for the questions only. It used to hide the prologue and write
+     the finished flag, which is why a new game dropped straight into the chat
+     with the opening never shown. Back now hands the questionnaire over. */
+  ok(document.getElementById('overlay-onboard').classList.contains('hidden'),
+     'back closes the questionnaire');
+  ok(!document.getElementById('overlay-prologue').classList.contains('hidden'),
+     'back hands the questionnaire over to the prologue');
+  ok(sandbox.Config_set_calls === 0,
+     'back does not mark onboarding done before the prologue has played');
 
-  document.getElementById('overlay-prologue').classList.remove('hidden');
   ok(R.handleBack() === true, 'prologue overlay: back consumed');
   await flush();
-  /* prologueNext calls _playPrologue, which routes audio through App.playFile
-     and then advances to the next step (or _tutorial at the end) — it never
-     marks onboarding done, unlike skip() */
-  ok(sandbox.Config_set_calls === 1,
+  /* prologueNext advances to the next clip, or to the tutorial at the end, and
+     never marks onboarding done: that is the tutorial's last line, not this */
+  ok(sandbox.Config_set_calls === 0,
      'back advances the prologue rather than skipping it');
   /* the prologue advance plays the next line through App.audio; make sure
      that did not leave the overlay open or trigger a follow-up layer */

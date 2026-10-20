@@ -103,11 +103,14 @@
       Onboarding._render();
     },
 
+    /* Skip is for the questions, not for the story. It used to hide the
+       prologue as well and mark the intro done, so one press dropped the player
+       straight into the chat with the opening never shown, which is exactly
+       what starting a new game is supposed to replay. onboardingDone is set
+       when the tutorial ends, so it is deliberately not set here: quitting
+       halfway through the intro should offer it again next boot. */
     skip: function () {
-      Config.set('state.onboardingDone', true);
-      document.getElementById('overlay-onboard').classList.add('hidden');
-      document.getElementById('overlay-prologue').classList.add('hidden');
-      Onboarding._onDone && Onboarding._onDone();
+      Onboarding._prologue();
     },
 
     _render: function () {
