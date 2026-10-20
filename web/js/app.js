@@ -889,8 +889,14 @@
             /* The wipe is the whole point, so it must not be a two-tap undo.
                The reload is what makes it a real new game: onboarding runs
                again and every module re-reads an empty store instead of the
-               copy it is still holding in memory. */
+               copy it is still holding in memory.
+               The wipe has to reach the save file first. Under Electron the
+               store is written from a debounced queue, and reloading in the
+               same tick dropped it: the next boot read the old file, so the
+               questionnaire and the prologue stayed hidden and a new game
+               looked like it had changed nothing. */
             Config.newGame();
+            if (window.ryzaFlushStorage) window.ryzaFlushStorage();
             location.reload();
           }
         });

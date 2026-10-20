@@ -555,7 +555,11 @@
             body.appendChild(p);
           },
           onOk: function () {
+            /* Same reason as the New Game path in app.js: flush the wiped store
+               to the save file before navigating away, or the reload boots from
+               the copy that still has everything. */
             Config.eraseAll();
+            if (window.ryzaFlushStorage) window.ryzaFlushStorage();
             location.reload();
           }
         });

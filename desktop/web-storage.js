@@ -88,6 +88,11 @@ function bootScript(store) {
     'Storage.prototype.clear=function(){rawClr.call(this);flush(false);};' +
     'document.addEventListener("visibilitychange",function(){if(document.hidden)flush(true);});' +
     'window.addEventListener("pagehide",function(){flush(true);});' +
+    /* Reloading straight after a wipe loses it: the pagehide flush above does
+       not land when the navigation starts in the same tick, so the 80ms
+       debounce dies with the page and the next boot reads the old file. This
+       is the explicit hook the wipe paths call before location.reload(). */
+    'window.ryzaFlushStorage=function(){flush(true);};' +
     '})();</script>';
 }
 

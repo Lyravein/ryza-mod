@@ -190,16 +190,27 @@
     }
   };
 
+  /* Everything copied out of `base` is cloned, never aliased. A shallow copy
+     left `data.state` pointing at `DEFAULTS.state` whenever the saved blob
+     lacked that section, so the first Config.set() after a load wrote straight
+     into DEFAULTS; newGame() then "restored" the very values it was meant to
+     drop, and the questionnaire and prologue did not come back. */
+  function cloneVal(v) {
+    if (Array.isArray(v)) return deepMerge(v, {});
+    if (v && typeof v === 'object') return deepMerge(v, {});
+    return v;
+  }
+
   function deepMerge(base, patch) {
     var out = Array.isArray(base) ? base.slice() : {};
     var k;
-    for (k in base) if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k];
+    for (k in base) if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = cloneVal(base[k]);
     for (k in patch) {
       if (!Object.prototype.hasOwnProperty.call(patch, k)) continue;
       var v = patch[k];
       out[k] = (v && typeof v === 'object' && !Array.isArray(v) &&
                 base[k] && typeof base[k] === 'object' && !Array.isArray(base[k]))
-        ? deepMerge(base[k], v) : v;
+        ? deepMerge(base[k], v) : cloneVal(v);
     }
     return out;
   }

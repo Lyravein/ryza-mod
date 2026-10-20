@@ -116,6 +116,36 @@ runConfig(seedStore(), (Config) => {
      'the player profile is blank again (onboarding will ask)');
 });
 
+console.log('# new game: a reset even when the values were written in this session');
+
+/* The bug this pins: deepMerge shallow-copied DEFAULTS, so after a wipe
+   data.state pointed at DEFAULTS.state. Every later Config.set() then wrote
+   into DEFAULTS, and the next new game "restored" the values it was meant to
+   drop, so the questionnaire and the prologue never came back. */
+/* The default, read from an empty store so it is DEFAULTS itself and not the
+   seeded run. */
+let dayDefault = null;
+runConfig({}, (Config) => { dayDefault = Config.section('state').day; });
+
+runConfig(seedStore(), (Config) => {
+  Config.set('state.day', 412);
+  Config.set('state.onboardingDone', true);
+  Config.set('profile.name', 'Finn');
+  Config.newGame();
+  ok(Config.section('state').day === dayDefault,
+     'a day written in this session resets (got ' + Config.section('state').day + ', want ' + dayDefault + ')');
+  ok(Config.section('state').onboardingDone === false,
+     'onboardingDone is false again, so the questionnaire and prologue return');
+  ok(!Config.section('profile').name, 'the name written in this session is gone');
+
+  /* twice in a row, with no reload in between */
+  Config.set('state.day', 412);
+  Config.set('state.onboardingDone', true);
+  Config.newGame();
+  ok(Config.section('state').day === dayDefault && Config.section('state').onboardingDone === false,
+     'a second new game in the same session still resets');
+});
+
 console.log('# new game: the module-owned stores');
 
 runConfig(seedStore(), (Config, store) => {
