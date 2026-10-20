@@ -183,7 +183,7 @@ public final class AssetServer extends Thread {
         }
         if (!proxyTargetAllowed(target)) {
             write(out, 400, "application/json",
-                  "{\"error\":{\"message\":\"proxy target must be https (or http on loopback)\"}}");
+                  "{\"error\":{\"message\":\"proxy target refused: use https, or http on a private host. A bare hostname is not enough, use the MagicDNS name (box.tailnet-name.ts.net)\"}}");
             return;
         }
         try {
@@ -229,7 +229,7 @@ public final class AssetServer extends Thread {
         }
         if (!proxyTargetAllowed(target)) {
             write(out, 400, "application/json",
-                  "{\"error\":{\"message\":\"proxy target must be https (or http on loopback)\"}}");
+                  "{\"error\":{\"message\":\"proxy target refused: use https, or http on a private host. A bare hostname is not enough, use the MagicDNS name (box.tailnet-name.ts.net)\"}}");
             return;
         }
         try {

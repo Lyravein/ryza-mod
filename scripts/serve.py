@@ -146,7 +146,7 @@ class Handler(SimpleHTTPRequestHandler):
         the blob is same-origin for the lip-sync analyser)."""
         target = (parse_qs(parsed.query).get("u") or [""])[0]
         if not proxy_target_allowed(target):
-            self.send_error(400, "proxy target must be https (or http on loopback)")
+            self.send_error(400, "proxy target refused: use https, or http on a private host. A bare hostname is not enough, use the MagicDNS name (box.tailnet-name.ts.net)")
             return
         try:
             headers = {"User-Agent": UA}
@@ -195,7 +195,7 @@ class Handler(SimpleHTTPRequestHandler):
             return
         target = (parse_qs(parsed.query).get("u") or [""])[0]
         if not proxy_target_allowed(target):
-            self.send_error(400, "proxy target must be https (or http on loopback)")
+            self.send_error(400, "proxy target refused: use https, or http on a private host. A bare hostname is not enough, use the MagicDNS name (box.tailnet-name.ts.net)")
             return
         n = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(n) if n else b""

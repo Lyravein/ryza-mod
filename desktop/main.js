@@ -83,7 +83,7 @@ const { proxyTargetAllowed } = require('./proxy-target');
 
 async function proxyRequest(request, targetUrl) {
   if (!proxyTargetAllowed(targetUrl)) {
-    return jsonError(400, 'proxy target must be https (or http on loopback)');
+    return jsonError(400, 'proxy target refused: use https, or http on a private host. A bare hostname is not enough, use the MagicDNS name (box.tailnet-name.ts.net)');
   }
   const headers = { 'User-Agent': 'RyzaChat/1.2.23' };
   const ct = request.headers.get('content-type');

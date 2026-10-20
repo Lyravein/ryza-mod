@@ -210,7 +210,10 @@ function get(port, query, extra) {
     ok(okName.status !== 400, 'http://localhost is not refused by the rule');
 
     const lan = await post(proxyPort, 'http://192.168.1.5:11434/v1/chat/completions');
-    ok(lan.status === 400 && /must be https/.test(lan.body),
+    /* Asserted on the refusal, not on a phrase from the message: the message now
+       names the remedy (use the MagicDNS name), and pinning its wording here
+       would make a wording change look like a rule change. */
+    ok(lan.status === 400 && /proxy target refused/.test(lan.body),
        'a LAN address is still refused (loopback-only exception)');
 
     const pub = await post(proxyPort, 'http://127.0.0.1.evil.com/');
