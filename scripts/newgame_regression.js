@@ -51,6 +51,9 @@ function seedStore() {
     'ryza.daily.v1':   '{"day":412}',
     'ryza.saves.v1':   '[{"id":1}]',
     'ryza.alarms.v1':  '[{"id":"a1"}]',
+    /* the run's birthday: Daily.dayIndex() is derived from it, and app.js:202
+       pushes that straight into Welcome.bumpDay() at boot */
+    'ryza.firstLaunch.v1': '2026-9-20',
     /* not part of a run: an imported outfit and a starred voice */
     'ryza.crf.imported.v1': '{"packs":["p1"]}',
     'ryza.voicefav.v1':     '{"favs":["v1"]}'
@@ -118,9 +121,13 @@ console.log('# new game: the module-owned stores');
 runConfig(seedStore(), (Config, store) => {
   Config.newGame();
   const RUN = ['ryza.game.v1', 'ryza.memory.v1', 'ryza.longmem.v1', 'ryza.longterm.v1',
-               'ryza.daily.v1', 'ryza.saves.v1', 'ryza.alarms.v1'];
+               'ryza.daily.v1', 'ryza.saves.v1', 'ryza.alarms.v1', 'ryza.firstLaunch.v1'];
   const left = RUN.filter((k) => k in store);
   ok(left.length === 0, 'every run store is removed' + (left.length ? ' (left: ' + left.join(', ') + ')' : ''));
+  /* A surviving first-launch date is invisible in the settings screen and only
+     shows up days later as welcome missions that were already unlocked. */
+  ok(!('ryza.firstLaunch.v1' in store),
+     'the first-launch date goes, so the 0/3/5 welcome gate restarts');
   ok('ryza.crf.imported.v1' in store && 'ryza.voicefav.v1' in store,
      'the imported outfit and the starred voice are NOT run state, so they stay');
 });

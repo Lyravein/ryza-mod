@@ -371,7 +371,16 @@
                       'ryza.longterm.v1', /* Longterm: standing facts         */
                       'ryza.daily.v1',    /* Daily: the day roll-over         */
                       'ryza.saves.v1',    /* Save slots (settings.js)         */
-                      'ryza.alarms.v1'];  /* Alarm: Ryza's daily routine      */
+                      'ryza.alarms.v1',   /* Alarm: Ryza's daily routine      */
+                      /* Not a module store: the date of the first launch, which
+                         only Daily.dayIndex() reads, and app.js:202 feeds it
+                         straight into Welcome.bumpDay() at boot. Leaving it
+                         behind refilled state.welcome_day with the old day
+                         count on the first boot after a new game, so every
+                         welcome mission group unlocked at once and the 0/3/5
+                         gate was meaningless. It is run state, not setup: it
+                         measures this run's age. */
+                      'ryza.firstLaunch.v1'];
       for (i = 0; i < RUN_KEYS.length; i++) {
         try { localStorage.removeItem(RUN_KEYS[i]); } catch (e) {}
       }
