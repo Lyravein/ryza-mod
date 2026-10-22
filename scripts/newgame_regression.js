@@ -46,6 +46,7 @@ function seedStore() {
     }),
     'ryza.game.v1':    '{"money":9}',
     'ryza.memory.v1':  '{"turns":[1,2,3]}',
+    'ryza.history.v1': '[{"role":"user","content":"lama"}]',
     'ryza.longmem.v1': '{"cards":[]}',
     'ryza.longterm.v1':'{"facts":["x"]}',
     'ryza.daily.v1':   '{"day":412}',
@@ -150,7 +151,7 @@ console.log('# new game: the module-owned stores');
 
 runConfig(seedStore(), (Config, store) => {
   Config.newGame();
-  const RUN = ['ryza.game.v1', 'ryza.memory.v1', 'ryza.longmem.v1', 'ryza.longterm.v1',
+  const RUN = ['ryza.game.v1', 'ryza.memory.v1', 'ryza.history.v1', 'ryza.longmem.v1', 'ryza.longterm.v1',
                'ryza.daily.v1', 'ryza.saves.v1', 'ryza.alarms.v1', 'ryza.firstLaunch.v1'];
   const left = RUN.filter((k) => k in store);
   ok(left.length === 0, 'every run store is removed' + (left.length ? ' (left: ' + left.join(', ') + ')' : ''));

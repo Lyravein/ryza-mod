@@ -135,6 +135,10 @@ function makeEnv(opts) {
     toast(msg, isErr) { toasts.push({ msg: String(msg), isErr: !!isErr }); },
     showView(name) { calls.push('showView:' + name); },
     saveMemory() { calls.push('saveMemory'); },
+    /* Mirrors the real App: _applySnapshot writes the restored history back to
+       ryza.history.v1, or the next launch resumes the session the slot was
+       meant to replace. */
+    saveHistory() { calls.push('saveHistory'); },
     updateHud() { calls.push('updateHud'); },
     renderWorld() { calls.push('renderWorld'); },
     renderMemory() { calls.push('renderMemory'); },
@@ -230,6 +234,8 @@ console.log('\n# 1. 按下「保存到此槽」必须真的写进 localStorage')
   eq(C.section('profile').name, 'Ryza-player', 'loading slot 1 restores the profile');
   eq(env.sandbox.App.history.length, 1, 'loading restores the chat history');
   ok(env.calls.indexOf('showView:talk') >= 0, 'loading returns the player to the chat');
+  ok(env.calls.indexOf('saveHistory') >= 0,
+     'loading persists the restored history, so the next launch resumes the slot');
   eq(env.toasts.filter((t) => t.isErr).length, 0, 'a successful load raises no error');
 }
 
