@@ -76,7 +76,11 @@
       return !!(Config.section('state').onboardingDone);
     },
 
-    showTitle: function (onStart) {
+    /* auto = the intro is finished and there is a conversation on record, so
+       this is a resumed session rather than a first launch. The front door is
+       for a first launch: stopping there every single time is what made a
+       reopened window feel like the game had restarted. */
+    showTitle: function (onStart, auto) {
       var el = document.getElementById('overlay-title');
       var btn = document.getElementById('btn-title-start');
       document.body.classList.add('boot');       /* hide chrome behind title */
@@ -89,6 +93,14 @@
         document.body.classList.remove('boot');
         onStart && onStart();
       };
+      if (auto) {
+        /* The same three things the click does, minus the click. Sound.unlock()
+           is not lost with it: audio.js:_listenUnlock already arms a one-shot
+           pointerdown / keydown listener that unlocks on the first tap. */
+        el.classList.add('hidden');
+        document.body.classList.remove('boot');
+        onStart && onStart();
+      }
     },
 
     start: function (onDone) {

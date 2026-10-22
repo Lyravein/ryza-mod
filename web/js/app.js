@@ -7,6 +7,11 @@
   'use strict';
 
   var MEM_KEY = 'ryza.memory.v1';
+  /* The wire history, not the diary: MEM_KEY holds {who,text,at} for the log
+     panel, this holds the role/content turns with their emotion tags, which is
+     what the model reads. Keeping only the diary meant a reopened window had
+     the old messages on screen and no context behind them. */
+  var HIST_KEY = 'ryza.history.v1';
   /* The save-slot key lives with the slot code (settings.js) — a closure-local
      const in this file is invisible there, which is exactly how the slots broke. */
   var HOME_STAGE = 'stage_01_001_04';       // ライザの家 — the safe place to sleep
@@ -141,6 +146,7 @@
       App.audio.crossOrigin = 'anonymous';
       try { App.memory = JSON.parse(localStorage.getItem(MEM_KEY) || '[]'); }
       catch (e) { App.memory = []; }
+      App.loadHistory();
 
       Game.load();
       Daily.load();
@@ -208,6 +214,8 @@
           App._syncPanelFrac();
         });
 
+        /* A finished intro with a conversation on record resumes it. */
+        var resuming = Onboarding.isDone() && App.history.length > 0;
         Onboarding.showTitle(function () {
           if (!Onboarding.isDone()) {
             App._inTutorial = true;
@@ -215,8 +223,10 @@
               App._inTutorial = false;
               App.enterGame(true);
             });
-          } else App.enterGame(false);
-        });
+          } else if (resuming) App.enterGame(true);   /* true = do not greet */
+          else App.enterGame(false);
+        }, resuming);
+        if (resuming) App.restoreChat();
       }).catch(function (e) {
         /* Recorded as well as shown: the whole boot chain is skipped after a
            throw, and "asset index failed" was the only clue even when the real
@@ -1846,6 +1856,7 @@
         },
         onOk: function () {
           App.history = [];
+          App.saveHistory();
           App._renderCtxMeter('');
           if (window.Nsfw) Nsfw.reset();
           App._pages = []; App._pageSel = -1;
@@ -1946,6 +1957,7 @@
             role: 'assistant',
             content: Api.formatHistoryReply(reply.text)
           });
+          App.saveHistory();
           App._renderCtxMeter('');
           App._sayReply(reply, turnEpoch);
           /* 助手这一轮进长期记忆的待归纳队列（被 STALE 丢弃的回复不会走到这里） */
@@ -2237,6 +2249,27 @@
                                 : I18n.tc('input.hint', inp.placeholder);
     },
 
+    /* A resumed window opens on the last thing she said instead of an empty
+       panel. The ring is rebuilt from the diary because that is the copy that
+       survives a close, and it caps itself at MEMORY_MAX. */
+    restoreChat: function () {
+      var said = [];
+      for (var i = 0; i < App.memory.length; i++) {
+        var m = App.memory[i];
+        if (m && m.who === 'ryza' && m.text) said.push(String(m.text));
+      }
+      App._pages = said.slice(-5);
+      App._pageSel = App._pages.length - 1;
+      App._renderDots();
+      if (!App._pages.length) return;
+      /* showBubble is a player setting, not a suggestion: restoring the bubble
+         over the stage would undo it on every launch. */
+      if ((Config.section('app').showBubble) === false) return;
+      var bt = document.getElementById('bubble-text');
+      if (bt) bt.textContent = App._pages[App._pages.length - 1];
+      var b = document.getElementById('bubble');
+      if (b) b.classList.remove('hidden');
+    },
     _pushPage: function (text) {
       if (!text) return;
       var last = App._pages[App._pages.length - 1];
@@ -2559,6 +2592,41 @@
         }
         return false;
       }
+    },
+    /* 80 messages covers the default: historyTurns 12 means Api.chat sends the
+       last 24 messages (api.js keep = turns * 2). The setting only has a lower
+       bound (settings.js), so a player who raises it reads more than 80; the cap
+       follows them up rather than silently resuming with less context than the
+       request window they asked for.
+       Best effort like saveMemory: a quota error costs the context on the next
+       launch, not the current turn, so it must not throw into the reply path. */
+    HISTORY_MAX: 80,
+    saveHistory: function () {
+      try {
+        var cap = App.HISTORY_MAX;
+        var asked = 0;
+        try { asked = (Config.section('llm').historyTurns || 12) * 2; }
+        catch (e) { asked = 0; }
+        if (asked > cap) cap = asked;
+        localStorage.setItem(HIST_KEY, JSON.stringify(App.history.slice(-cap)));
+        return true;
+      } catch (e) {
+        return false;
+      }
+    },
+    loadHistory: function () {
+      var got;
+      try { got = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); }
+      catch (e) { got = []; }
+      if (!Array.isArray(got)) got = [];
+      /* Anything that is not a real turn would be rejected by the API anyway;
+         dropping it here keeps a hand-edited or half-written store from
+         poisoning every later request. */
+      App.history = got.filter(function (m) {
+        return m && (m.role === 'user' || m.role === 'assistant') &&
+               typeof m.content === 'string';
+      });
+      return App.history;
     },
     renderMemory: function () {
       var root = document.getElementById('memory-list');

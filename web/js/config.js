@@ -378,6 +378,7 @@
       /* progress that each module owns outright */
       var RUN_KEYS = ['ryza.game.v1',    /* Game: stage, style, flags        */
                       'ryza.memory.v1',   /* App: the conversation transcript */
+                      'ryza.history.v1',  /* App: the model's own turn history */
                       'ryza.longmem.v1',  /* Memory: the two-layer recall    */
                       'ryza.longterm.v1', /* Longterm: standing facts         */
                       'ryza.daily.v1',    /* Daily: the day roll-over         */

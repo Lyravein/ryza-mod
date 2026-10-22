@@ -665,7 +665,7 @@
       b2.className = 'btn danger'; b2.textContent = T('chara.clearMemory');
       b2.onclick = function () {
         if (confirm(T('chara.clearMemory.confirm'))) {
-          App.history = []; App.toast(I18n.t('chara.clearMemory.done'));
+          App.history = []; App.saveHistory(); App.toast(I18n.t('chara.clearMemory.done'));
         }
       };
       row.appendChild(b2);
@@ -720,6 +720,7 @@
       }
       Config.importJSON(JSON.stringify(snap.settings));
       App.history = snap.history || [];
+      App.saveHistory();
       App.memory = snap.memory || [];
       App.saveMemory();
       if (window.Memory) Memory.restore(snap.longmem);
