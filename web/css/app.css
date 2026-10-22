@@ -516,7 +516,11 @@ body.side-open #quick-btns{opacity:0;pointer-events:none;transition:opacity .15s
 .ring-time{font-size:42px;font-weight:700;letter-spacing:.06em}
 .ring-type{color:var(--gold);margin:8px 0 18px}
 .qc-card{display:flex;flex-direction:column;align-items:center;gap:10px}
-.qc-card img{width:72px}
+/* height is explicit because the pack's SVG carries width="100%"
+   height="100%" and preserveAspectRatio="none": with no intrinsic ratio the
+   img falls back to the 300x150 default object size, so width:72px alone
+   made the box 72x150 and squashed the 144x144 art to half width. */
+.qc-card img{width:72px;height:72px}
 #skin-veil{position:absolute;inset:0;z-index:15;background:#0a0608;opacity:0;transition:opacity .45s;pointer-events:none}
 #skin-veil.veil-on{opacity:.92}
 .wm-cap{font-size:14px;flex:1}
