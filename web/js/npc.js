@@ -99,7 +99,7 @@
      continuation lines of a multi-line speech, so a paragraph cannot be split
      across speakers by accident. */
   function split(text) {
-    var body = String(text == null ? '' : text);
+    var body = dropForeign(String(text == null ? '' : text));
     if (!body.trim()) return [];
     var lines = body.split(/\r?\n/);
     var beats = [];
@@ -139,6 +139,47 @@
                 .map(function (b) { return b.text; })
                 .join('\n')
                 .trim();
+  }
+
+  /* 指定言語以外の文を落とす。プロンプトで「同じ内容を他の言語で書き直さない」
+     と禁じてあるのに、返答の後半を中国語で繰り返すことがある（画面には両方
+     出る。2026-10-23 の実例）。判定は「文の過半が CJK 文字か」だけなので、
+     インドネシア語の文に漢字の固有名詞が一つ混ざる程度では落ちない。
+     対象は表示と TTS の手前（split の出口）で、履歴には原文が残る。 */
+  var CJK_CHAR = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/g;
+  /* 句読点・記号・空白は「言語」の判定に数えない。数えると「只是……」の
+     ように短い中国語片が記号で薄まって残る。 */
+  var NEUTRAL = /[\s。．！？!?…、，,.~〜「」『』（）()\[\]【】"'*＊:：;；\-]/g;
+
+  function replyLang() {
+    try { if (global.Langs && Langs.llm) return Langs.llm() || 'ja'; } catch (e) {}
+    return 'ja';
+  }
+
+  function cjkHeavy(seg) {
+    var chars = String(seg).replace(NEUTRAL, '');
+    if (!chars) return false;
+    var hit = chars.match(CJK_CHAR);
+    return !!hit && hit.length * 2 > chars.length;
+  }
+
+  function dropForeign(text) {
+    var body = String(text == null ? '' : text);
+    var lg = replyLang();
+    if (lg === 'ja' || lg === 'zh' || lg === 'zh-tw') return body;
+    var segs = body.match(/[^。．！？!?…\n]+[。．！？!?…\n]*/g) || [];
+    var kept = [], foreign = 0, native = 0;
+    segs.forEach(function (s) {
+      /* 訳文行は落とさない: 表示はしないが、返答の唯一の中身なら代替になる */
+      if (SPEAKER[1].re.test(s)) { kept.push(s); return; }
+      if (cjkHeavy(s)) { foreign++; return; }
+      native++;
+      kept.push(s);
+    });
+    /* 一文も指定言語で書かれていないなら、モデルはその言語で通したということ。
+       全部消して空のバブルにするより原文のまま出す。 */
+    if (!foreign || !native) return body;
+    return kept.join('').replace(/\n{3,}/g, '\n\n').trim() || body;
   }
 
   /* 显示用的说话人标签。旁白/她的台词不加标签（面板本身就是她的口吻），
