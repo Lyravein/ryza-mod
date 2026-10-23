@@ -2109,11 +2109,42 @@
     'input.hint': 'Tap to talk with Ryza', 'input.wake': 'Tap to wake Ryza',
     'place.stage_01_001_04': 'Ryza’s Home', 'place.stage_01_002_01': 'In front of Tao’s house',
     'place.area_01': 'Kurken Island Area', 'place.area_02': 'Cleria region',
+    'place.area_03': 'Nemeth Region', 'place.area_04': 'Orim, the Underworld',
+    'place.area_05': 'Around the Capital',
     'place.field_01_001': 'Kurken Island'
   };
   Object.keys(EN_VERBATIM).forEach(function (k) { T.en[k] = EN_VERBATIM[k]; });
   ['hi', 'id', 'pt-br'].forEach(function (lg) {
     Object.keys(EN_VERBATIM).forEach(function (k) { if (T[lg]) T[lg][k] = EN_VERBATIM[k]; });
+  });
+
+  /* The map picker fell back to the raw Japanese data name on every non-ja UI:
+     only place.area_01/02 were ever filled in, so ネメッド地方, 冥界オーリム and
+     王都周辺地域 showed up in English and Indonesian alike. The three world.*
+     labels shipped in simplified Chinese for zh-tw and in English for id, which
+     is what a half-translated panel looks like. Applied after the verbatim pass
+     so id can differ from the English it inherits. */
+  var MAP_FILL = {
+    zh: {
+      'place.area_03': '尼梅德地区', 'place.area_04': '冥界奥里姆'
+    },
+    'zh-tw': {
+      'place.area_03': '尼梅德地區', 'place.area_04': '冥界奧里姆',
+      'world.map': '地圖', 'world.areas': '區域', 'world.peopleOf': '在這裡的人',
+      'world.herePeople': '此處的人', 'world.empty': '誰也不在這裡',
+      'world.tod': '時段', 'world.mapShort': '世界地圖'
+    },
+    id: {
+      'place.area_01': 'Area Pulau Kurken', 'place.area_02': 'Wilayah Cleria',
+      'place.area_03': 'Wilayah Nemeth', 'place.area_04': 'Orim, Dunia Bawah',
+      'place.area_05': 'Sekitar Ibu Kota', 'world.map': 'Peta',
+      'world.herePeople': 'Orang di sini', 'world.tod': 'Waktu hari',
+      'world.mapShort': 'Peta dunia'
+    }
+  };
+  Object.keys(MAP_FILL).forEach(function (lg) {
+    if (!T[lg]) return;
+    Object.keys(MAP_FILL[lg]).forEach(function (k) { T[lg][k] = MAP_FILL[lg][k]; });
   });
 
   /* =====================================================================
