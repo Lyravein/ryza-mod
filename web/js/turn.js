@@ -56,6 +56,12 @@
      (that duplicate re-armed the microphone cooldown twice). */
   var _cancelled = {};
 
+  /* Replies are synthesized and played one sentence at a time, so the first
+     clip starts while the rest is still being rendered. 160 characters is past
+     the point where one clip's synthesis latency is worth waiting for; a
+     comma-bounded cut is the fallback for a sentence that long. */
+  var CHUNK_MAX = 160;
+
   function emit(ev) {
     _subs.slice().forEach(function (f) {
       try { f(ev); } catch (e) { /* a listener must never break the turn */ }
@@ -136,6 +142,60 @@
     } catch (e) { /* nothing to revoke */ }
   }
 
+  /* A full stop ends a sentence. '.' only counts when whitespace or the end
+     follows it, so "3.5" and "1.2.23" stay whole. Runs of marks ("!?" and
+     "……」") stay in the sentence they close. */
+  function isBoundary(s, i) {
+    var ch = s.charAt(i);
+    if (ch === '') return false;
+    if (ch === '。' || ch === '！' || ch === '？' || ch === '…' ||
+        ch === '!' || ch === '?' || ch === '\n') return true;
+    if (ch === '.') {
+      var n = s.charAt(i + 1);
+      return n === '' || n === ' ' || n === '\n' || n === '\t' ||
+             n === '"' || n === ')' || n === '」';
+    }
+    return false;
+  }
+
+  /* Split a reply into speakable clips. Whitespace at a boundary is dropped
+     (each clip is synthesized on its own); no other character is lost.
+     Returns [text] when nothing splits, so a one-line reply is one clip and
+     costs exactly what it cost before. */
+  function splitChunks(text) {
+    var s = String(text == null ? '' : text);
+    var out = [];
+    var buf = '';
+    var i, j, cut, head;
+
+    function flush() {
+      var t = buf.replace(/^\s+|\s+$/g, '');
+      buf = '';
+      if (t) out.push(t);
+    }
+
+    for (i = 0; i < s.length; i++) {
+      buf += s.charAt(i);
+      /* A sentence longer than CHUNK_MAX is cut at the last comma or space
+         before the limit, and at the limit itself for CJK prose with
+         neither. */
+      while (buf.length > CHUNK_MAX) {
+        cut = -1;
+        for (j = CHUNK_MAX; j > CHUNK_MAX / 2; j--) {
+          var c = buf.charAt(j - 1);
+          if (c === '、' || c === '，' || c === ',' || c === ' ') { cut = j; break; }
+        }
+        if (cut < 0) cut = CHUNK_MAX;
+        head = buf.slice(0, cut).replace(/\s+$/, '');
+        buf = buf.slice(cut).replace(/^\s+/, '');
+        if (head) out.push(head);
+      }
+      if (isBoundary(s, i) && !isBoundary(s, i + 1)) flush();
+    }
+    flush();
+    return out.length ? out : [s];
+  }
+
   function run(intent) {
     var made = makeSignal();
     _active = {
@@ -146,25 +206,79 @@
     setState(THINKING);
     emit({ type: 'start', intentId: intent.id, intent: intent });
 
-    var out;
-    try {
-      out = _synth ? _synth(intent.text, intent.meta, made.signal) : Promise.resolve(null);
-    } catch (e) {
-      out = Promise.reject(e);
+    /* One intent, several clips. The intent stays active across them, so no
+       consumer sees a fake end between sentences: an end would re-arm the
+       microphone cooldown and release the bubble mid-reply. */
+    var chunks = splitChunks(intent.text);
+    var i = 0;
+    var settled = false;
+    var ahead = synthChunk(0);
+
+    function synthChunk(k) {
+      var meta = intent.meta;
+      if (chunks.length > 1) {
+        /* Chunk identity only matters when there is more than one: the synth
+           port caches the opening clip and skips the rest. */
+        meta = {
+          mode: meta.mode, emotion: meta.emotion, fx: meta.fx,
+          chunk: k, chunkCount: chunks.length
+        };
+      }
+      var out;
+      try { out = _synth ? _synth(chunks[k], meta, made.signal) : null; }
+      catch (e) { out = Promise.reject(e); }
+      var p = Promise.resolve(out);
+      /* The lookahead request can reject while the previous clip is still
+         playing. This branch swallows that window; step() still receives the
+         rejection because it awaits the promise itself. */
+      p.catch(function () {});
+      return p;
     }
 
-    Promise.resolve(out).then(function (url) {
-      /* The intent died while synthesis was in flight: throw the blob away
-         instead of playing it (this is the "she stops mid-sentence" path). */
-      if (made.signal.aborted) { revoke(url); return; }
-      if (!url || !_player) { finish(intent.id, url ? 'no-player' : 'no-audio'); return; }
-      setState(SPEAKING);
-      emit({ type: 'speak', intentId: intent.id, url: url, intent: intent });
-      return Promise.resolve(_player(url, made.signal, intent.meta))
-        .then(function () { finish(intent.id, made.signal.aborted ? 'interrupted' : 'done'); });
-    }).catch(function (e) {
-      if (made.signal.aborted) { finish(intent.id, 'interrupted'); return; }
-      finish(intent.id, 'error');
+    function done(reason) {
+      if (settled) return;
+      settled = true;
+      /* A clip synthesized for a reply that already ended is never played, so
+         its blob would leak until the page unloads. */
+      if (ahead) { ahead.then(revoke, function () {}); ahead = null; }
+      finish(intent.id, reason);
+    }
+
+    function step() {
+      var cur = ahead;
+      ahead = null;
+      return cur.then(function (url) {
+        if (settled) { revoke(url); return; }
+        /* The intent died while synthesis was in flight: throw the blob away
+           instead of playing it (this is the "she stops mid-sentence" path). */
+        if (made.signal.aborted) { revoke(url); done('interrupted'); return; }
+        if (!url || !_player) { done(url ? 'no-player' : 'no-audio'); return; }
+        setState(SPEAKING);
+        /* `speak` marks the start of her voice, and Voice uses it to restart
+           the 700 ms first-sentence guard. Firing it per clip would keep that
+           guard armed for the whole reply and block barge-in. */
+        if (i === 0) {
+          emit({
+            type: 'speak', intentId: intent.id, url: url, intent: intent,
+            chunk: 0, chunkCount: chunks.length
+          });
+        }
+        i++;
+        /* One clip of lookahead: the next clip is synthesized while this one
+           plays, so a sentence boundary costs no silence. */
+        if (i < chunks.length) ahead = synthChunk(i);
+        return Promise.resolve(_player(url, made.signal, intent.meta)).then(function () {
+          if (settled) return;
+          if (made.signal.aborted) { done('interrupted'); return; }
+          if (ahead) return step();
+          done('done');
+        });
+      });
+    }
+
+    step().catch(function (e) {
+      if (made.signal.aborted) { done('interrupted'); return; }
+      done('error');
       emit({ type: 'error', error: e, intent: intent });
     });
   }
