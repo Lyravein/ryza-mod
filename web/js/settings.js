@@ -383,10 +383,6 @@
         function (v) { Config.set('app.voice', v); if (App._syncVoicePill) App._syncVoicePill(); });
       App._switch(w, T('settings.bubble'), Config.section('app').showBubble !== false,
         function (v) { Config.set('app.showBubble', v); });
-      /* 模型给了「译文：」行时，面板是否同时显示她的原句。
-         关掉 = 只显示译文（语音照旧读原句）。 */
-      App._switch(w, T('settings.showOriginal'), Config.section('app').showOriginal !== false,
-        function (v) { Config.set('app.showOriginal', v); });
       App._switch(w, T('settings.vibration'), Config.section('app').vibration,
         function (v) { Config.set('app.vibration', v); });
       App._switch(w, T('settings.rim'), Config.section('app').rim !== false,
