@@ -1657,13 +1657,19 @@
     /* ------------------------------------------------- translate channel
        Used when the TTS language differs from the reply language: the
        displayed text stays, the spoken text is re-voiced in another
-       language by the same LLM. */
+       language by the same LLM.
+
+       Every failure path REJECTS instead of returning the input. The voice is
+       a fixed Japanese voice: handing it the untranslated line makes her read
+       the reply language with Japanese phonetics, which is heard as "the audio
+       follows the text". Silence plus a toast is the honest outcome; the
+       caller decides, because only it knows what is about to be spoken. */
     translate: function (text, toLang) {
       if (!text || !toLang || toLang === Api.replyLang()) {
         return Promise.resolve(text);
       }
       var llm = Config.section('llm');
-      if (!llm.apiKey) return Promise.resolve(text);
+      if (!llm.apiKey) return Promise.reject(new Error('TRANSLATE_FAILED'));
       return request(localProxy(upstreamUrl(llm.baseUrl, '/chat/completions')), {
         model: llm.model, stream: false,
         messages: [
@@ -1671,11 +1677,15 @@
           { role: 'user', content: text }
         ],
         temperature: 0.3,
-        max_tokens: Math.max(80, (llm.maxTokens || 400))
+        /* The reply is already written; the translation must not be cut short
+           by the chat budget, or half a line gets voiced. */
+        max_tokens: Math.max(200, Math.ceil(String(text).length * 2))
       }, llm.apiKey, 60000).then(function (j) {
         var c = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
-        return (c && String(c).trim()) || text;
-      }).catch(function () { return text; });
+        c = c && String(c).trim();
+        if (!c) throw new Error('TRANSLATE_FAILED');
+        return c;
+      });
     },
 
     /* ------------------------------------------------------------- LLM */

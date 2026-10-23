@@ -404,6 +404,9 @@
           var msg = (ev.error && ev.error.message) || '';
           App.toast(msg === 'NO_KEY' ? I18n.t('toast.needKey')
                 : msg === 'NO_MODEL' ? I18n.t('toast.needModel')
+                /* The line is on screen but unvoiced: saying why is the only
+                   thing that keeps "no sound" from looking like a bug. */
+                : msg === 'TRANSLATE_FAILED' ? I18n.t('toast.voiceTranslateFail')
                 : I18n.t('toast.ttsFail') + msg, true);
         });
       }
