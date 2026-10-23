@@ -54,9 +54,9 @@ function rig(Turn) {
     synths.push({ text: text, meta: meta });
     return Promise.resolve('blob:' + synths.length);
   });
-  Turn.setPlayer(function (url, signal) {
+  Turn.setPlayer(function (url, signal, meta) {
     return new Promise(function (resolve) {
-      const p = { url: url, signal: signal, end: resolve };
+      const p = { url: url, signal: signal, meta: meta, end: resolve };
       plays.push(p);
       if (signal && signal.addEventListener) signal.addEventListener('abort', resolve);
     });
@@ -159,7 +159,24 @@ async function drain(r, Turn) {
        'A10 a closing quote stays with the clip it closes, not the next one');
   }
 
-  console.log('\n=== B. one utterance, not three ===');
+    {
+    const Turn = boot();
+    const r = rig(Turn);
+    /* Meta the caller set must reach the player untouched. An earlier version
+       rebuilt it for every reply and dropped the fields only the caller knows
+       (fx carries the per-mode playback shaping: ASMR plays slower and softer),
+       so the mode silently stopped reaching the audio. */
+    Turn.setChunking(false);
+    const fx = { rate: 0.93, gain: 0.82 };
+    Turn.speak('はい。', { mode: 'asmr', fx: fx });
+    await sleep();
+    ok(r.synths.length === 1 && r.synths[0].meta.fx === fx
+       && !!(r.plays[0] && r.plays[0].meta && r.plays[0].meta.fx === fx),
+       'A11 the caller\'s meta (fx) reaches the synth and the player unchanged');
+    await drain(r, Turn);
+  }
+
+console.log('\n=== B. one utterance, not three ===');
 
   {
     const Turn = boot();
