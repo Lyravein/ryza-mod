@@ -1783,11 +1783,7 @@
       /* Facts above, roster + protocol below — the model cannot use a cast it
          was never shown (web/js/npc.js). */
       if (window.Npc && Npc.promptBlock) {
-        var npcBlock = Npc.promptBlock(st, {
-          appCfg: Config.section('app'),
-          /* 回复语言与界面语言不同时，才允许模型附带「译文：」行 */
-          translate: !!(window.Langs && Langs.llm && Langs.ui && Langs.llm() !== Langs.ui())
-        });
+        var npcBlock = Npc.promptBlock(st, { appCfg: Config.section('app') });
         if (npcBlock) L.push('', npcBlock);
       }
       return L.join('\n');
