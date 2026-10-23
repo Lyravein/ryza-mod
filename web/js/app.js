@@ -232,7 +232,7 @@
            throw, and "asset index failed" was the only clue even when the real
            cause was a wiring call. boot_smoke asserts this is null. */
         App._bootError = e;
-        App.toast('素材索引加载失败：' + e.message, true);
+        App.toast(I18n.t('app.assetIndexFail') + e.message, true);
       });
     },
 
@@ -1343,7 +1343,7 @@
       var btn = document.getElementById('btn-world-mode');
       if (btn) {
         var label = btn.querySelector('span');
-        if (label) label.textContent = (m === 'map') ? '列表' : '地图';
+        if (label) label.textContent = (m === 'map') ? I18n.t('world.list') : I18n.t('world.map');
       }
       App.renderWorld();
     },
@@ -2531,20 +2531,19 @@
           var chips = document.createElement('div');
           chips.className = 'day-chips';
           chips.id = 'f-alarm-days';
-          Alarm.WEEK.forEach(function (label, i) {
+          Alarm.WEEK.forEach(function (dayId, i) {
             var b = document.createElement('button');
             b.type = 'button';
             b.className = 'chip' + (defDays.indexOf(i) >= 0 ? ' on' : '');
             b.setAttribute('data-day', String(i));
-            b.textContent = label;
+            b.textContent = I18n.t('dl.week.' + dayId);
             b.onclick = function () { b.classList.toggle('on'); };
             chips.appendChild(b);
           });
           days.appendChild(chips);
           var hint = document.createElement('div');
           hint.className = 'hint';
-          hint.textContent = I18n.t('alarm.everyday') + ' — ' +
-            (I18n.lang === 'en' ? 'leave all off' : (I18n.lang === 'ja' ? '未選択で毎日' : '全不选即每天'));
+          hint.textContent = I18n.t('alarm.everyday') + ' / ' + I18n.t('set.dayAllOff');
           days.appendChild(hint);
           body.appendChild(days);
 
@@ -2561,7 +2560,7 @@
         },
         onOk: function (body) {
           var time = (body.querySelector('#f-alarm-time').value || '').slice(0, 5);
-          if (!/^\d{2}:\d{2}$/.test(time)) { App.toast('请填写时间', true); return false; }
+          if (!/^\d{2}:\d{2}$/.test(time)) { App.toast(I18n.t('set.timeRequired'), true); return false; }
           var type = body.querySelector('#f-alarm-type').value;
           var style = body.querySelector('#f-alarm-style').value;
           var days = [];
@@ -2703,7 +2702,7 @@
           el.innerHTML = '<div class="card-title"><span class="tag' +
             (m.who === 'ryza' ? '' : ' leaf') + ' t-who"></span></div>' +
             '<div class="card-sub t-text"></div>';
-          el.querySelector('.t-who').textContent = m.who === 'ryza' ? 'ライザ' : '你';
+          el.querySelector('.t-who').textContent = m.who === 'ryza' ? I18n.t('chara.ryza') : I18n.t('chara.you');
           el.querySelector('.t-text').textContent = m.text;
           root.appendChild(el);
         });

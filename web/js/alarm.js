@@ -8,7 +8,8 @@
   var KEY = 'ryza.alarms.v1';
   var TYPES = ['goodMorning', 'playWithMe', 'task', 'wellDone'];
   var STYLES = ['normal', 'whisper'];
-  var WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+  /* Day ids in getDay() order (0 = Sunday); rendered via I18n.t('dl.week.' + id). */
+  var WEEK = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
   /* Voice-table band name for an hour. The boundaries are NOT redeclared here:
      Util.hourToTod owns them (shared with the scene bands), and Util.TOD_VOICE
@@ -192,7 +193,7 @@
           var el = document.createElement('div');
           el.className = 'card' + (a.enabled ? '' : ' done');
           var days = (a.days && a.days.length)
-            ? a.days.slice().sort().map(function (d) { return WEEK[d]; }).join(' ')
+            ? a.days.slice().sort().map(function (d) { return I18n.t('dl.week.' + WEEK[d]); }).join(' ')
             : I18n.t('alarm.everyday');
           el.innerHTML =
             '<div class="card-title"><span class="t-time"></span>' +

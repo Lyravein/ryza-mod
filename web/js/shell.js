@@ -20,9 +20,9 @@
       ctl.appendChild(b);
       return b;
     };
-    var pin = mk('win-pin', '📌', '窗口置顶');
-    var min = mk('win-min', '—', '最小化');
-    var cls = mk('win-close', '✕', '关闭');
+    var pin = mk('win-pin', '📌', I18n.t('shell.pin'));
+    var min = mk('win-min', '—', I18n.t('shell.min'));
+    var cls = mk('win-close', '✕', I18n.t('shell.close'));
     /* 窗口控件挂在顶栏末尾。这里曾经想在「设置」按钮后面插入，
        但官方 UI 改版后设置入口搬进了侧边菜单（`#sm-settings`），
        `#btn-settings` 已经不存在 —— 那半个分支永远走不到，删掉。 */

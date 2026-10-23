@@ -261,7 +261,7 @@
     init: function (onReady) {
       Avatar.host = makeHost('scene-canvas');
       if (!Avatar.host) {
-        Avatar._notify('此浏览器不支持 WebGL，立绘无法显示', true);
+        Avatar._notify(I18n.t('avatar.webgl'), true);
         return;
       }
       Avatar.scene = makeLayer(Avatar.host);
@@ -1148,7 +1148,7 @@
       var tries = 0;
       (function poll() {
         if (a.isLoadingComplete()) {
-          if (a.hasErrors()) { done(new Error('素材加载失败：' + skelUrl)); return; }
+          if (a.hasErrors()) { done(new Error(I18n.t('avatar.assets') + skelUrl)); return; }
           try {
             var atlas = a.require(atlasUrl);
             var loader = new spine.AtlasAttachmentLoader(atlas);
@@ -1173,7 +1173,7 @@
           } catch (e) { done(e); }
           return;
         }
-        if (++tries > 900) { done(new Error('加载超时：' + skelUrl)); return; }
+        if (++tries > 900) { done(new Error(I18n.t('avatar.timeout') + skelUrl)); return; }
         setTimeout(poll, 50);
       })();
     },
@@ -1239,7 +1239,7 @@
             cb && cb(null);
           });
         }).catch(function (e) {
-          Avatar._notify('皮肤加载失败：' + e.message, true);
+          Avatar._notify(I18n.t('avatar.skin') + e.message, true);
           cb && cb(e);
         });
       };
@@ -1255,7 +1255,7 @@
         .then(function (scenes) {
           var stage = scenes[stageId];
           var entry = stage && (stage[tod] || stage[Object.keys(stage)[0]]);
-          if (!entry) throw new Error('没有这个场景：' + stageId + '/' + tod);
+          if (!entry) throw new Error(I18n.t('avatar.scene') + stageId + '/' + tod);
           L.ready = false;
           var cfgP = entry.config
             ? fetch(entry.config).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })

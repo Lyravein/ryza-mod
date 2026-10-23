@@ -2258,17 +2258,17 @@
     en: {
       'api.credits': 'Insufficient credits',
       'api.creditsNeed': ' (needs {need})',
-      'fish.hostHint': '(Note: fishaudio.org is not the official site; the official endpoint is https://api.fish.audio — leave it empty to use the official one)',
+      'fish.hostHint': '(Note: fishaudio.org is not the official site; the official endpoint is https://api.fish.audio - leave it empty to use the official one)',
       'fish.phase.clone': 'Voice creation',
       'fish.phase.voices': 'Voice list',
       'fish.phase.synth': 'Speech synthesis',
       'fish.err.401': 'Fish Audio: invalid or missing API key (HTTP 401, {phase})',
       'fish.err.403': 'Fish Audio: permission denied, model unavailable, or this voice is not accessible (HTTP 403, {phase})',
       'fish.err.429': 'Fish Audio: rate or quota limit exceeded (HTTP 429, {phase})',
-      'fish.err.402.clone': 'Fish Audio: creating a voice needs API credit (HTTP 402) — cloning is a paid action; top up on the developer page at fish.audio once the free quota is used up.',
-      'fish.err.402.engine': 'Fish Audio: this engine needs API credit (HTTP 402) — only s2.1-pro-free is free; paid engines and misspelled engine names both report this. Top up on the developer page at fish.audio.',
-      'fish.err.400.voice': 'Fish Audio: the voice ID is invalid or does not belong to this account (HTTP 400) — copy the id of your own voice from fish.audio, or leave it empty to use the default voice.',
-      'fish.err.400.short': 'Fish Audio: voice creation failed because the sample audio is too short (HTTP 400) — each sample needs at least a few seconds; the bundled samples are about 7 seconds, so you can use them directly.',
+      'fish.err.402.clone': 'Fish Audio: creating a voice needs API credit (HTTP 402) - cloning is a paid action; top up on the developer page at fish.audio once the free quota is used up.',
+      'fish.err.402.engine': 'Fish Audio: this engine needs API credit (HTTP 402) - only s2.1-pro-free is free; paid engines and misspelled engine names both report this. Top up on the developer page at fish.audio.',
+      'fish.err.400.voice': 'Fish Audio: the voice ID is invalid or does not belong to this account (HTTP 400) - copy the id of your own voice from fish.audio, or leave it empty to use the default voice.',
+      'fish.err.400.short': 'Fish Audio: voice creation failed because the sample audio is too short (HTTP 400) - each sample needs at least a few seconds; the bundled samples are about 7 seconds, so you can use them directly.',
       'fish.err.generic': 'Fish Audio {phase} failed',
       'fish.noSample': 'Could not find the local Ryza voice samples (need assets/audio/prologue/jp/*.m4a or voice/ryza_wav/*.wav)',
       'api.noAudio': 'The endpoint returned no audio',
@@ -2295,17 +2295,17 @@
     ja: {
       'api.credits': '积分不足',
       'api.creditsNeed': '（需要 {need}）',
-      'fish.hostHint': '（注意：fishaudio.org 不是官方站点，官方接口是 https://api.fish.audio——留空即用官方）',
+      'fish.hostHint': '（注意：fishaudio.org 不是官方站点，官方接口是 https://api.fish.audio - 留空即用官方）',
       'fish.phase.clone': '音色创建',
       'fish.phase.voices': '音色列表',
       'fish.phase.synth': '语音合成',
       'fish.err.401': 'Fish Audio：API key 无效或缺失（HTTP 401，{phase}）',
       'fish.err.403': 'Fish Audio：权限不足、模型不可用或音色无权访问（HTTP 403，{phase}）',
       'fish.err.429': 'Fish Audio：超出速率或额度限制（HTTP 429，{phase}）',
-      'fish.err.402.clone': 'Fish Audio：这次创建音色需要 API 额度（HTTP 402）——克隆本身是付费动作，免费额度用完后要在 fish.audio 的开发者页充值。',
-      'fish.err.402.engine': 'Fish Audio：这个引擎需要 API 额度（HTTP 402）——免费只有 s2.1-pro-free；付费引擎/写错的引擎名都会报这个。充值入口在 fish.audio 的开发者页。',
-      'fish.err.400.voice': 'Fish Audio：音色 ID 无效或不属于这个账号（HTTP 400）——请在 fish.audio 里复制自己音色的 id，或留空用默认音色。',
-      'fish.err.400.short': 'Fish Audio：音色创建失败，样本音频太短（HTTP 400）——每个样本至少几秒；自带样本约 7 秒，可以先直接用它们。',
+      'fish.err.402.clone': 'Fish Audio：这次创建音色需要 API 额度（HTTP 402） - 克隆本身是付费动作，免费额度用完后要在 fish.audio 的开发者页充值。',
+      'fish.err.402.engine': 'Fish Audio：这个引擎需要 API 额度（HTTP 402） - 免费只有 s2.1-pro-free；付费引擎/写错的引擎名都会报这个。充值入口在 fish.audio 的开发者页。',
+      'fish.err.400.voice': 'Fish Audio：音色 ID 无效或不属于这个账号（HTTP 400） - 请在 fish.audio 里复制自己音色的 id，或留空用默认音色。',
+      'fish.err.400.short': 'Fish Audio：音色创建失败，样本音频太短（HTTP 400） - 每个样本至少几秒；自带样本约 7 秒，可以先直接用它们。',
       'fish.err.generic': 'Fish Audio {phase}失败',
       'fish.noSample': '找不到本地莱莎原声（需要 assets/audio/prologue/jp/*.m4a 或 voice/ryza_wav/*.wav）',
       'api.noAudio': '接口未返回音频',
@@ -2335,6 +2335,42 @@
   });
   Object.keys(PROVIDER_SETTINGS_STRINGS.ja).forEach(function (k) {
     T.ja[k] = PROVIDER_SETTINGS_STRINGS.ja[k];
+  });
+
+  /* app chrome: English default */
+  var APP_CHROME_STRINGS = {
+    en: {
+      'app.assetIndexFail': 'Could not load the asset index: ',
+      'set.dayAllOff': 'leave all off',
+      'set.timeRequired': 'Enter a time',
+      'shell.pin': 'Always on top',
+      'shell.min': 'Minimize',
+      'shell.close': 'Close',
+      'avatar.webgl': 'This browser does not support WebGL, so the character cannot be drawn',
+      'avatar.assets': 'Could not load the assets: ',
+      'avatar.timeout': 'Loading timed out: ',
+      'avatar.skin': 'Could not load the outfit: ',
+      'avatar.scene': 'No such scene: '
+    },
+    ja: {
+      'app.assetIndexFail': '素材インデックスを読み込めませんでした：',
+      'set.dayAllOff': '未選択で毎日',
+      'set.timeRequired': '時刻を入力してください',
+      'shell.pin': '常に手前に表示',
+      'shell.min': '最小化',
+      'shell.close': '閉じる',
+      'avatar.webgl': 'このブラウザは WebGL に対応していないため、立ち絵を表示できません',
+      'avatar.assets': '素材の読み込みに失敗しました：',
+      'avatar.timeout': '読み込みがタイムアウトしました：',
+      'avatar.skin': 'スキンの読み込みに失敗しました：',
+      'avatar.scene': 'そのシーンはありません：'
+    }
+  };
+  Object.keys(APP_CHROME_STRINGS.en).forEach(function (k) {
+    T.en[k] = APP_CHROME_STRINGS.en[k];
+  });
+  Object.keys(APP_CHROME_STRINGS.ja).forEach(function (k) {
+    T.ja[k] = APP_CHROME_STRINGS.ja[k];
   });
 
   global.I18n = I18n;

@@ -143,7 +143,7 @@
         n: Daily.streak(), rw: msgs.join(L('list.sep', '、'))
       }));
       if (_celebrate) { try { _celebrate(); } catch (e) { /* never break the claim */ } }
-      return { ok: true, day: idx + 1, text: msgs.join('、') };
+      return { ok: true, day: idx + 1, text: msgs.join(L('list.sep', '、')) };
     },
 
     render: function (root) {
