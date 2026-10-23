@@ -92,7 +92,7 @@ what lets every module load alone in the headless regressions.
 
 **Side-effect protocol.** Visual fields occupy the first tag line of a model reply. Stamina, inventory, and quest updates occupy a trailing `<state>` JSON block, stripped before display and TTS. The protocol does not require tool calling, which many OpenAI-compatible endpoints omit.
 
-**TTS.** Credential fields are partitioned by provider (`openai` / `qwen` / `fish`) so a host switch cannot reuse the previous base URL or key. The same rule covers speech input (`stt.baseUrl` / `stt.apiKey`).
+**TTS.** Credential fields are partitioned by provider (`openai` / `qwen` / `fish`) so a host switch cannot reuse the previous base URL or key. The same rule covers speech input (`stt.baseUrl` / `stt.apiKey`). A reply is synthesized one sentence at a time (`splitChunks` in `turn.js`, 160-character ceiling, one clip of lookahead) so the first clip starts while the rest is still rendering; the reply is still a single intent, and `speak` fires once.
 
 **Speech input.** Two engines behind one gate: the browser's own recogniser (streaming,
 zero-config) and the client's own PCM capture plus a provider transcription endpoint
