@@ -368,8 +368,12 @@
             return Api.speak(t, ttsL, (meta && meta.mode) || st2.mode, (meta && meta.emotion) || '')
               .then(function (url) {
                 /* 同一条台词只缓存一次：key = 文本 + 模式。
-                   缓存失败绝不影响播放（VoiceCache 自己吞异常）。 */
-                if (window.VoiceCache && url) {
+                   缓存失败绝不影响播放（VoiceCache 自己吞异常）。
+                   一条回复现在会被切成多个片段（turn.js splitChunks），
+                   而 replay 按钮只播一个片段：只缓存开头的片段，
+                   否则按钮会指向整条回复的最后一句。 */
+                var cacheable = !meta || meta.chunkCount == null || meta.chunk === 0;
+                if (window.VoiceCache && url && cacheable) {
                   try {
                     App._voiceSeq = (App._voiceSeq || 0) + 1;
                     var key = 'v' + App._voiceSeq + ':' + t.slice(0, 40);
