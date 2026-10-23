@@ -134,7 +134,7 @@
 
     /* -------------------------------------------------------------- boot */
     init: function () {
-      I18n.setLang(Config.section('app').lang || 'zh');
+      I18n.setLang(Config.section('app').lang || 'en');
       App.applyI18n(document);
       var inpEl = document.getElementById('input');
       if (inpEl) inpEl.placeholder = I18n.tc('input.hint', inpEl.placeholder);

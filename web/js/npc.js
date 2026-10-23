@@ -148,9 +148,9 @@
     hi: 'अनुवाद', id: 'Terjemahan', 'pt-br': 'Tradução'
   };
   function translationLabel() {
-    var lang = 'zh';
-    try { if (global.Langs && Langs.ui) lang = Langs.ui() || 'zh'; } catch (e) {}
-    return TRANS_LABEL[lang] || TRANS_LABEL.zh;
+    var lang = 'en';
+    try { if (global.Langs && Langs.ui) lang = Langs.ui() || 'en'; } catch (e) {}
+    return TRANS_LABEL[lang] || TRANS_LABEL.en;
   }
 
   function labelFor(beat) {
