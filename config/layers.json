@@ -311,7 +311,7 @@
       {
         "host": "scripts/serve.py",
         "label": "目标必须 https（loopback 例外）",
-        "re": "proxy target must be https"
+        "re": "proxy target refused: use https"
       },
       {
         "host": "scripts/serve.py",
@@ -341,7 +341,7 @@
       {
         "host": "desktop/main.js",
         "label": "目标必须 https（loopback 例外）",
-        "re": "proxy target must be https"
+        "re": "proxy target refused: use https"
       },
       {
         "host": "desktop/main.js",
@@ -371,7 +371,7 @@
       {
         "host": "android/app/src/main/java/com/ryza/chat/AssetServer.java",
         "label": "目标必须 https（loopback 例外）",
-        "re": "proxy target must be https"
+        "re": "proxy target refused: use https"
       },
       {
         "host": "android/app/src/main/java/com/ryza/chat/AssetServer.java",
