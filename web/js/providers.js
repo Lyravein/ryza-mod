@@ -22,6 +22,11 @@
    scripts/voice_regression.js exercise every row headlessly.
 */
 (function (global) {
+  /* Localisation without a hard dependency: the regression harnesses load this
+     file without i18n.js, so fall back to the English default string instead of
+     throwing ReferenceError. */
+  function _t(k, fb) { return (typeof I18n !== 'undefined' && I18n.t) ? global.I18n.t(k) : (fb === undefined ? k : fb); }
+  function _tf(k, fb, map) { return (typeof I18n !== 'undefined' && I18n.tf) ? I18n.tf(k, fb, map) : fb; }
   'use strict';
 
   /* Every field name here must be the provider's OWN namespace. Sharing a
@@ -121,7 +126,7 @@
     return ctx.fetch(base + 'audio_query?text=' + text + '&speaker=' + encodeURIComponent(style),
                      { method: 'POST' })
       .then(function (r) {
-        if (!r.ok) throw fail(I18n.t('engine.audioQueryFail'), r.status);
+        if (!r.ok) throw fail(_t('engine.audioQueryFail'), r.status);
         return r.json();
       })
       .then(function (query) {
@@ -132,7 +137,7 @@
         });
       })
       .then(function (r) {
-        if (!r.ok) throw fail(I18n.t('engine.synthesisFail'), r.status);
+        if (!r.ok) throw fail(_t('engine.synthesisFail'), r.status);
         return r.blob();
       })
       .then(function (blob) { return URL.createObjectURL(blob); })
@@ -140,7 +145,7 @@
         /* A bare "failed to fetch" here almost always means the engine is not
            running or refuses cross-origin calls — say both. */
         if (e && e.hint === 'local-engine') throw e;
-        var err = new Error(row.id + ': ' + I18n.t('engine.unreachable'));
+        var err = new Error(row.id + ': ' + _t('engine.unreachable'));
         err.hint = 'local-engine';
         err.cause = e;
         throw err;

@@ -429,7 +429,7 @@ const sleep = () => new Promise((r) => setTimeout(r, 0));
   await Prov.speakLocal(Prov.credentials(Config.section('tts')),
                         { text: 'x', fetch: () => Promise.reject(new Error('failed to fetch')) })
     .catch((e) => { localErr = e; });
-  ok(localErr && localErr.hint === 'local-engine' && /连不上本地引擎/.test(localErr.message),
+  ok(localErr && localErr.hint === 'local-engine' && /cannot reach the local engine/i.test(localErr.message),
      'E7 an unreachable engine names the likely cause (not running / no cross-origin)');
 
   console.log('\n=== F. voice input gate (echo.js + voice.js) ===');
@@ -810,7 +810,7 @@ const sleep = () => new Promise((r) => setTimeout(r, 0));
 
   ok(/s2\.1-pro-free/.test(Api._fishErrorMessage(402, '{"message":"Insufficient API credit."}', 'k', 'tts', '')),
      'I9 a 402 names the one free engine instead of a bare "insufficient credit"');
-  ok(/默认音色/.test(Api._fishErrorMessage(400, '{"message":"Reference not found"}', 'k', 'tts', '')),
+  ok(/default voice/i.test(Api._fishErrorMessage(400, '{"message":"Reference not found"}', 'k', 'tts', '')),
      'I9 a 400 Reference-not-found explains the voice id');
 
   console.log('\n=== J. fish voice cloning (the Clone button) ===');
@@ -899,7 +899,7 @@ const sleep = () => new Promise((r) => setTimeout(r, 0));
      The check counts POSTs rather than inflight(): earlier sections leave an
      intentionally unanswered TTS request behind, so a global in-flight count
      says nothing about this call. */
-  const noLocalSamples = (e) => !!e && /找不到本地莱莎原声/.test(String(e.message));
+  const noLocalSamples = (e) => !!e && /Could not find the local Ryza voice samples/i.test(String(e.message));
   const posts = () => pending.filter((x) => x._method === 'POST').length;
   const postsBefore = posts();
   Config.set('tts.reference', '');
@@ -998,13 +998,13 @@ const sleep = () => new Promise((r) => setTimeout(r, 0));
   const tooShortBody = { status: 400,
     message: 'Failed to preprocess audio: {"detail":"Audio is too short"}' };
   const tooShort = await postTo('/model', tooShortBody, 400);
-  ok(!!tooShort.err && /太短/.test(String(tooShort.err.message)) &&
+  ok(!!tooShort.err && /too short/i.test(String(tooShort.err.message)) &&
      !/API key/.test(String(tooShort.err.message)),
      'J10 the measured "Audio is too short" 400 is explained as a short clip');
   /* And the explanation has to be one the user can act on. A 400 that gets its
      own branch would still pass the assertion above if the branch ended up
      returning a bare status code, so name what to do about it. */
-  ok(/秒|second/i.test(String(tooShort.err.message)),
+  ok(/second|秒/i.test(String(tooShort.err.message)),
      'J10 and it tells the user how long a sample has to be');
 
   /* Measured: the clone call names no engine, so a 402 on it is about the
@@ -1018,7 +1018,7 @@ const sleep = () => new Promise((r) => setTimeout(r, 0));
      "fixed" by blanking the text, which passes an absence check and helps
      nobody. A 402 on the create call is about the credit, so say so. */
   ok(/额度|credit/i.test(String(broke.err.message)) &&
-     /音色|clone|模型|model/i.test(String(broke.err.message)),
+     /音色|voice|clon|模型|model/i.test(String(broke.err.message)),
      'J11 and it still says the voice creation ran out of credit');
 
   /* J13: the uploaded count is what the create call actually sends, so a cap

@@ -1,6 +1,11 @@
 /* LLM + TTS transport. Both are OpenAI-compatible chat/completions.
    Nothing here touches the original backend — that channel is gone by design. */
 (function (global) {
+  /* Localisation without a hard dependency: the regression harnesses load this
+     file without i18n.js, so fall back to the English default string instead of
+     throwing ReferenceError. */
+  function _t(k, fb) { return (typeof I18n !== 'undefined' && I18n.t) ? global.I18n.t(k) : (fb === undefined ? k : fb); }
+  function _tf(k, fb, map) { return (typeof I18n !== 'undefined' && I18n.tf) ? global.I18n.tf(k, fb, map) : fb; }
   'use strict';
 
   /* The emotion/attitude vocabulary lives in core (util.js) because this module
@@ -663,7 +668,7 @@
       var code = j.code;
       if (code === 'ERR_INSUFFICIENT_CREDITS' || status === 402) {
         var need = j.required_quota || j.requiredQuota;
-        return (msg || I18n.t('api.credits')) + (need ? I18n.tf('api.creditsNeed', ' (needs {need})', { need: need }) : '');
+        return (msg || _t('api.credits')) + (need ? _tf('api.creditsNeed', ' (needs {need})', { need: need }) : '');
       }
       if (msg && code && String(code) && String(code) !== '200') {
         return String(code) + ': ' + msg;
@@ -676,7 +681,7 @@
          stream:false, an HTML captive-portal page, a truncated reply). Name
          the situation instead of pasting the body into the toast, which is
          what the player used to see. */
-      try { if (typeof I18n !== 'undefined' && I18n.t) return I18n.t('api.badBody'); } catch (e) {}
+      try { if (typeof I18n !== 'undefined' && I18n.t) return _t('api.badBody'); } catch (e) {}
       return 'unreadable response body (HTTP ' + status + ')';
     }
     var snippet = raw ? String(raw).replace(/\s+/g, ' ').slice(0, 180) : '';
@@ -752,7 +757,7 @@
   function transportError(code) {
     var msg = code;
     try {
-      if (typeof I18n !== 'undefined' && I18n.t) msg = I18n.t('api.' + code);
+      if (typeof I18n !== 'undefined' && I18n.t) msg = _t('api.' + code);
     } catch (e) { /* a locale-less host keeps the bare code */ }
     var err = new Error(msg);
     err.code = code;
@@ -848,15 +853,15 @@
      request went to instead of leaving the user to guess. */
   function fishHostHint(root) {
     if (!/fishaudio\.org/i.test(String(root || ''))) return '';
-    return I18n.t('fish.hostHint');
+    return _t('fish.hostHint');
   }
 
   function fishErrorMessage(status, raw, apiKey, phase, root) {
-    var label = phase === 'clone' ? I18n.t('fish.phase.clone')
-      : (phase === 'voices' ? I18n.t('fish.phase.voices') : I18n.t('fish.phase.synth'));
-    if (status === 401) return I18n.tf('fish.err.401', 'Fish Audio: invalid or missing API key (HTTP 401, {phase})', { phase: label }) + fishHostHint(root);
-    if (status === 403) return I18n.tf('fish.err.403', 'Fish Audio: permission denied, model unavailable, or this voice is not accessible (HTTP 403, {phase})', { phase: label }) + fishHostHint(root);
-    if (status === 429) return I18n.tf('fish.err.429', 'Fish Audio: rate or quota limit exceeded (HTTP 429, {phase})', { phase: label });
+    var label = phase === 'clone' ? _t('fish.phase.clone')
+      : (phase === 'voices' ? _t('fish.phase.voices') : _t('fish.phase.synth'));
+    if (status === 401) return _tf('fish.err.401', 'Fish Audio: invalid or missing API key (HTTP 401, {phase})', { phase: label }) + fishHostHint(root);
+    if (status === 403) return _tf('fish.err.403', 'Fish Audio: permission denied, model unavailable, or this voice is not accessible (HTTP 403, {phase})', { phase: label }) + fishHostHint(root);
+    if (status === 429) return _tf('fish.err.429', 'Fish Audio: rate or quota limit exceeded (HTTP 429, {phase})', { phase: label });
     /* Measured against the live endpoint: POST /model and POST /voices answer
        402 for a real balance problem, and the CURRENT TTS API also answers 402
        for a paid or misspelled engine (s2.1-pro-free is the free one). The
@@ -864,9 +869,9 @@
        the user to fix the wrong field; say which call ran out of credit. */
     if (status === 402) {
       if (phase === 'clone') {
-        return I18n.t('fish.err.402.clone');
+        return _t('fish.err.402.clone');
       }
-      return I18n.t('fish.err.402.engine');
+      return _t('fish.err.402.engine');
     }
     var j = null;
     try { j = JSON.parse(String(raw || '')); } catch (e) {}
@@ -874,16 +879,16 @@
     /* 400 "Reference not found"：the voice id is not one this account can use
        (a public voice id copied from somewhere else, or a stale one). */
     if (status === 400 && /reference not found/i.test(String(raw || ''))) {
-      return I18n.t('fish.err.400.voice');
+      return _t('fish.err.400.voice');
     }
     /* Measured 400: "Failed to preprocess audio: {"detail":"Audio is too short"}".
        The clue arrives nested inside the API's own sentence, so the generic
        path would paste an English blob and the user cannot see what to change.
        Every shipped local sample is about seven seconds. */
     if (status === 400 && /too short/i.test(String(raw || ''))) {
-      return I18n.t('fish.err.400.short');
+      return _t('fish.err.400.short');
     }
-    return I18n.tf('fish.err.generic', 'Fish Audio {phase} failed', { phase: label })
+    return _tf('fish.err.generic', 'Fish Audio {phase} failed', { phase: label })
          + (detail ? ': ' + detail : ' (HTTP ' + status + ')');
   }
 
@@ -1172,7 +1177,7 @@
       var wavs = files.filter(function (f) { return /\.wav$/i.test(f.name); });
       if (wavs.length) files = wavs;
       if (!files.length) {
-        throw new Error(I18n.t('fish.noSample'));
+        throw new Error(_t('fish.noSample'));
       }
       if (files.length > fishCloneMaxFiles) files = files.slice(0, fishCloneMaxFiles);
       return files;
@@ -1852,7 +1857,7 @@
         }, cred.apiKey, 180000).then(function (j) {
           var msg = j.choices && j.choices[0] && j.choices[0].message;
           var data = msg && msg.audio && msg.audio.data;
-          if (!data) throw new Error(I18n.t('api.noAudio'));
+          if (!data) throw new Error(_t('api.noAudio'));
           return Api._b64ToUrl(data, tts.format === 'mp3' ? 'audio/mpeg' : 'audio/wav');
         });
       }
@@ -1896,7 +1901,7 @@
         var url = aud && aud.url;
         if (data) return Api._b64ToUrl(data, 'audio/wav');
         if (url) return Api._downloadUrl(url);
-        throw new Error(I18n.t('api.qwenNoAudio'));
+        throw new Error(_t('api.qwenNoAudio'));
       });
     },
 
@@ -1907,7 +1912,7 @@
       var headers = {};
       if (apiKey) headers.Authorization = 'Bearer ' + apiKey;
       return fetch(localProxy(qwenHttpsUrl(url)), { headers: headers }).then(function (r) {
-        if (!r.ok) throw new Error(I18n.tf('api.audioDownloadFail', 'Audio download failed (HTTP {status})', { status: r.status }));
+        if (!r.ok) throw new Error(_tf('api.audioDownloadFail', 'Audio download failed (HTTP {status})', { status: r.status }));
         return r.blob();
       }).then(function (blob) { return URL.createObjectURL(blob); });
     },
@@ -2073,10 +2078,10 @@
            the create response, so anything else means the fast path did not
            happen and the user has to know that. */
         var vid = j && (j._id || j.voiceId || j.voice_id || j.id);
-        if (!vid) throw new Error(apiErrorMessage(j, 200, '') || I18n.t('fish.noVoiceId'));
+        if (!vid) throw new Error(apiErrorMessage(j, 200, '') || _t('fish.noVoiceId'));
         var state = j && j.state;
         if (state && String(state).toLowerCase() !== 'trained') {
-          throw new Error(I18n.tf('fish.voiceNotTrained', 'Voice created (id {id}) but its state is still {state}; it can only be used once training finishes. Wait a moment and click clone again.', { id: vid, state: state }));
+          throw new Error(_tf('fish.voiceNotTrained', 'Voice created (id {id}) but its state is still {state}; it can only be used once training finishes. Wait a moment and click clone again.', { id: vid, state: state }));
         }
         return vid;
       });
@@ -2103,7 +2108,7 @@
       }).then(function (j) {
         var out = j && j.output;
         var vid = out && (out.voice_id || out.voice);
-        if (!vid) throw new Error(apiErrorMessage(j, 200, '') || I18n.t('qwen.noVoiceId'));
+        if (!vid) throw new Error(apiErrorMessage(j, 200, '') || _t('qwen.noVoiceId'));
         return vid;
       });
     },
@@ -2117,7 +2122,7 @@
     /* Reference audio must reach the API as `data:audio/wav;base64,...`. */
     _fetchAsDataUrl: function (path) {
       return fetch(path).then(function (r) {
-        if (!r.ok) throw new Error(I18n.tf('tts.refAudioReadFail', 'Could not read the reference audio: {path}', { path: path }));
+        if (!r.ok) throw new Error(_tf('tts.refAudioReadFail', 'Could not read the reference audio: {path}', { path: path }));
         return r.arrayBuffer();
       }).then(function (buf) {
         var bytes = new Uint8Array(buf), s = '', i;

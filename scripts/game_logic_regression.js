@@ -224,10 +224,10 @@ ok(bootLang(['zh-CN']) === 'zh' && bootLang(['ja-JP']) === 'ja', 'zh-CN → zh, 
 ok(bootLang(['in-ID']) === 'id' && bootLang(['pt-PT']) === 'pt-br', 'legacy in-ID → id, pt → pt-br');
 ok(bootLang(['fr-FR', 'ja']) === 'ja', 'first supported entry in the list wins');
 ok(bootLang(['fr-FR']) === 'en', 'unsupported device language → en');
-ok(bootLang(null) === 'zh', 'no navigator language → shipped default');
+ok(bootLang(null) === 'en', 'no navigator language → shipped default (en)');
 ok(bootLang(['en-US'], { app: { lang: 'ja' } }) === 'ja', 'a saved choice always wins over the device');
-ok(bootLang(['en-US'], { llm: { model: 'x' } }) === 'zh',
-   'existing install without app.lang keeps the old default (no surprise switch)');
+ok(bootLang(['en-US'], { llm: { model: 'x' } }) === 'en',
+   'existing install without app.lang gets the shipped default (en), not a device guess');
 
 console.log('# battle economics (area used to be a string: NaN wiped gold)');
 Game.reset();
