@@ -288,6 +288,12 @@
         "why": "只用于 dev 水合 config/providers.json（scripts/serve.py 提供）。打包宿主一律 404，所以运行期不会走网络。真要干净就把这一段挪到 io 层的 dev 模块。"
       }
     ],
+    "i18n": [
+      {
+        "re": "WebGL",
+        "why": "只是错误提示文本（avatar.webgl）里出现的产品名，i18n 不碰画布也不建上下文。命中两处是因为 en 和 ja 各一条文案。"
+      }
+    ],
     "world": [
       {
         "re": "\\bfetch\\(",
