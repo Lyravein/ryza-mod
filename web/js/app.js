@@ -2119,9 +2119,9 @@
 
     /* 重播上一段语音（从缓存取，不重新合成）。 */
     replayLastVoice: function () {
-      if (!window.VoiceCache || !App._lastVoiceKey) { App.toast('没有可重播的语音'); return; }
+      if (!window.VoiceCache || !App._lastVoiceKey) { App.toast(I18n.t('toast.noVoiceReplay')); return; }
       VoiceCache.urlFor(App._lastVoiceKey).then(function (url) {
-        if (!url) { App.toast('这段语音已不在缓存里'); return; }
+        if (!url) { App.toast(I18n.t('toast.voiceGone')); return; }
         var a = App.audio;
         if (!a) return;
         try {
@@ -2130,15 +2130,15 @@
           a.play().catch(function () {});
           Avatar.setTalking(true);
           a.onended = function () { Avatar.setTalking(false); try { URL.revokeObjectURL(url); } catch (e) {} };
-        } catch (e) { App.toast('重播失败'); }
-      }).catch(function () { App.toast('重播失败'); });
+        } catch (e) { App.toast(I18n.t('toast.replayFail'), true); }
+      }).catch(function () { App.toast(I18n.t('toast.replayFail'), true); });
     },
 
     /* 收藏 / 取消收藏上一段语音（收藏的片段不会被字节预算逐出） */
     favLastVoice: function () {
-      if (!window.VoiceCache || !App._lastVoiceKey) { App.toast('没有可收藏的语音'); return; }
+      if (!window.VoiceCache || !App._lastVoiceKey) { App.toast(I18n.t('toast.noVoiceFav')); return; }
       var on = VoiceCache.toggleFav(App._lastVoiceKey);
-      App.toast(on ? '已收藏这段语音' : '已取消收藏');
+      App.toast(on ? I18n.t('toast.voiceFaved') : I18n.t('toast.voiceUnfaved'));
     },
 
     /* Shared end-of-audio bookkeeping. The rate reset is not cosmetic: ASMR
