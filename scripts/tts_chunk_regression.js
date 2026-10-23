@@ -133,6 +133,16 @@ async function drain(r, Turn) {
        'A9 and the long reply loses nothing');
   }
 
+  {
+    const Turn = boot();
+    const r = rig(Turn);
+    Turn.speak('「そう。」って言った。', { mode: 'chat' });
+    await drain(r, Turn);
+    ok(r.synths.length === 2 && r.synths[0].text === '「そう。」' &&
+       r.synths[1].text === 'って言った。',
+       'A10 a closing quote stays with the clip it closes, not the next one');
+  }
+
   console.log('\n=== B. one utterance, not three ===');
 
   {
@@ -197,6 +207,38 @@ async function drain(r, Turn) {
     ok(plays.length === 1, 'D2 the clip after the failure is never played');
     ok(Turn.state() === Turn.IDLE,
        'D3 and the turn is idle, so the microphone is not deaf for the session');
+  }
+
+  console.log('\n=== E. a failed clip is reported before the turn moves on ===');
+
+  {
+    const Turn = boot();
+    const synths = [];
+    const events = [];
+    let n = 0;
+    Turn.setSynth(function (t) {
+      synths.push(t);
+      n++;
+      if (n === 1) return Promise.reject(new Error('NO_KEY'));
+      return Promise.resolve('blob:' + n);
+    });
+    Turn.setPlayer(function () { return new Promise((r) => setTimeout(r, 5)); });
+    Turn.on(function (e) {
+      events.push(e);
+      /* A listener starting something new from the error event must get a
+         real intent, not one silently swallowed by the turn moving on. */
+      if (e.type === 'error') Turn.speak('つぎのひとこと', { mode: 'chat' });
+    });
+    Turn.speak('いち。に。', { mode: 'chat' });
+    await sleep(150);
+    const errAt = events.findIndex((e) => e.type === 'error');
+    const endAt = events.findIndex((e) => e.type === 'end');
+    ok(errAt >= 0 && endAt >= 0 && errAt < endAt,
+       'E1 error is reported before the end it explains');
+    ok(synths.indexOf('つぎのひとこと') === 1,
+       'E2 an intent started from the error listener still runs');
+    ok(Turn.state() === Turn.IDLE && Turn.waiting() === 0,
+       'E3 and the queue drains');
   }
 
   console.log('\n--- 汇总 ---');

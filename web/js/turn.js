@@ -62,6 +62,9 @@
      comma-bounded cut is the fallback for a sentence that long. */
   var CHUNK_MAX = 160;
 
+  /* Punctuation that closes a sentence but is not itself a sentence end. */
+  var CLOSERS = "」』\"）)";
+
   function emit(ev) {
     _subs.slice().forEach(function (f) {
       try { f(ev); } catch (e) { /* a listener must never break the turn */ }
@@ -144,7 +147,9 @@
 
   /* A full stop ends a sentence. '.' only counts when whitespace or the end
      follows it, so "3.5" and "1.2.23" stay whole. Runs of marks ("!?" and
-     "……」") stay in the sentence they close. */
+     "……」") stay in the sentence they close. Closing quotes are deliberately
+     not boundaries: in 「そう。」って言った。 the quote sits mid-sentence, so
+     the full stop inside it must not cut the clip there. */
   function isBoundary(s, i) {
     var ch = s.charAt(i);
     if (ch === '') return false;
@@ -190,7 +195,18 @@
         buf = buf.slice(cut).replace(/^\s+/, '');
         if (head) out.push(head);
       }
-      if (isBoundary(s, i) && !isBoundary(s, i + 1)) flush();
+      if (isBoundary(s, i)) {
+        /* A closing quote belongs to the clip it closes, never to the start of
+           the next one: a clip that begins with a lone 」 is a clip the TTS
+           engine has to guess at. */
+        var k = i + 1;
+        while (k < s.length && CLOSERS.indexOf(s.charAt(k)) >= 0) {
+          buf += s.charAt(k);
+          i = k;
+          k++;
+        }
+        if (!isBoundary(s, i + 1)) flush();
+      }
     }
     flush();
     return out.length ? out : [s];
@@ -278,8 +294,11 @@
 
     step().catch(function (e) {
       if (made.signal.aborted) { done('interrupted'); return; }
-      done('error');
+      /* The cause is reported before the consequence: a listener reading only
+         `end` gets a reason with no detail, and one that reacts to `error`
+         should see it before the turn moves on. */
       emit({ type: 'error', error: e, intent: intent });
+      done('error');
     });
   }
 
