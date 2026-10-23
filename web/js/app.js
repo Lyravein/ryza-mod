@@ -387,6 +387,13 @@
               });
           });
         });
+        /* Per-sentence synthesis is opt-in (tts.chunked) because it is only
+           free where the provider takes a whole line without per-request
+           delivery instructions. Fish prefixes every request with a cue, so a
+           chunked reply arrives as several separate takes and sounds stitched
+           instead of spoken, which is why this defaults to off. */
+        Turn.setChunking(Config.section('tts').chunked === true);
+
         Turn.setPlayer(function (url, signal, meta) {
           return App.playSpeech(url, signal, meta && meta.fx);
         });

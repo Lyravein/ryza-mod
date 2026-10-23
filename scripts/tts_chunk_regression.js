@@ -46,6 +46,7 @@ function boot() {
 /* Synthesis resolves immediately and records what it was handed. The player is
    hand-driven, so "while clip 1 plays" is a real state to assert on. */
 function rig(Turn) {
+  Turn.setChunking(true);
   const synths = [];
   const plays = [];
   const events = [];
@@ -80,6 +81,21 @@ async function drain(r, Turn) {
     console.log('  FAIL watchdog: the test itself hung');
     process.exit(1);
   }, 15000);
+
+  console.log('\n=== 0. off unless the host asks for it ===');
+
+  {
+    const Turn = boot();
+    const r = rig(Turn);
+    /* The shipped default: one request per reply, exactly as before chunking
+       existed. A provider that prefixes a delivery cue per request (Fish) is
+       unusable any other way. */
+    Turn.setChunking(false);
+    Turn.speak('はい。うん。そう。', { mode: 'chat' });
+    await drain(r, Turn);
+    ok(r.synths.length === 1 && r.synths[0].text === 'はい。うん。そう。',
+       'A0 chunking is off by default, so a reply is one request');
+  }
 
   console.log('\n=== A. how a reply is cut ===');
 
@@ -188,6 +204,7 @@ async function drain(r, Turn) {
     const Turn = boot();
     const plays = [];
     let n = 0;
+    Turn.setChunking(true);
     Turn.setSynth(function () {
       n++;
       if (n === 2) return Promise.reject(new Error('NO_KEY'));

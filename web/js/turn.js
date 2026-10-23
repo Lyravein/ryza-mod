@@ -43,6 +43,11 @@
 
   var _synth = null;      /* fn(text, meta, signal) -> Promise<url|null> */
   var _player = null;     /* fn(url, signal, meta) -> Promise           */
+  /* Off by default. A provider that steers delivery with an inline cue (Fish
+     prefixes every request with one) turns each clip into a separate take with
+     its own cue, which is heard as stitched, drifting speech. The host turns
+     this on only when it knows the provider tolerates it. */
+  var _chunked = false;
   var _cancelTurn = null; /* fn(reason) -> epoch                       */
   var _subs = [];
 
@@ -225,7 +230,7 @@
     /* One intent, several clips. The intent stays active across them, so no
        consumer sees a fake end between sentences: an end would re-arm the
        microphone cooldown and release the bubble mid-reply. */
-    var chunks = splitChunks(intent.text);
+    var chunks = _chunked ? splitChunks(intent.text) : [intent.text];
     var i = 0;
     var settled = false;
     var ahead = synthChunk(0);
@@ -319,6 +324,7 @@
     /* ------------------------------------------------------------- ports */
     setSynth: function (fn) { _synth = (typeof fn === 'function') ? fn : null; },
     setPlayer: function (fn) { _player = (typeof fn === 'function') ? fn : null; },
+    setChunking: function (on) { _chunked = !!on; },
     setTurnCanceller: function (fn) { _cancelTurn = (typeof fn === 'function') ? fn : null; },
     on: function (fn) {
       if (typeof fn !== 'function') return function () {};
