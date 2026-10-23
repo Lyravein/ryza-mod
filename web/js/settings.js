@@ -594,8 +594,14 @@
       }
       App.toast('合成中…');
       /* no explicit mode → Api.speak uses the live talk mode, so this
-         doubles as a preview of the per-mode voice direction. */
-      Api.speak('やあ、聞こえてる？').then(function (url) {
+         doubles as a preview of the per-mode voice direction. The sample is
+         translated to the speech language first: a Japanese sample says
+         nothing about how the chosen output language actually sounds. */
+      Api.translate('やあ、聞こえてる？', Langs.tts()).catch(function () {
+        return 'やあ、聞こえてる？';
+      }).then(function (line) {
+        return Api.speak(line);
+      }).then(function (url) {
         if (!url) { App.toast('语音已关闭'); return; }
         App.playUrl(url);
         App.toast('OK');
