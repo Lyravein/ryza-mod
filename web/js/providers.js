@@ -121,7 +121,7 @@
     return ctx.fetch(base + 'audio_query?text=' + text + '&speaker=' + encodeURIComponent(style),
                      { method: 'POST' })
       .then(function (r) {
-        if (!r.ok) throw fail('audio_query 失败', r.status);
+        if (!r.ok) throw fail(I18n.t('engine.audioQueryFail'), r.status);
         return r.json();
       })
       .then(function (query) {
@@ -132,7 +132,7 @@
         });
       })
       .then(function (r) {
-        if (!r.ok) throw fail('synthesis 失败', r.status);
+        if (!r.ok) throw fail(I18n.t('engine.synthesisFail'), r.status);
         return r.blob();
       })
       .then(function (blob) { return URL.createObjectURL(blob); })
@@ -140,7 +140,7 @@
         /* A bare "failed to fetch" here almost always means the engine is not
            running or refuses cross-origin calls — say both. */
         if (e && e.hint === 'local-engine') throw e;
-        var err = new Error(row.id + ': 连不上本地引擎（未启动，或引擎未允许跨源调用）');
+        var err = new Error(row.id + ': ' + I18n.t('engine.unreachable'));
         err.hint = 'local-engine';
         err.cause = e;
         throw err;

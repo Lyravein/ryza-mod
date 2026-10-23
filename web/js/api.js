@@ -663,7 +663,7 @@
       var code = j.code;
       if (code === 'ERR_INSUFFICIENT_CREDITS' || status === 402) {
         var need = j.required_quota || j.requiredQuota;
-        return (msg || '积分不足') + (need ? '（需要 ' + need + '）' : '');
+        return (msg || I18n.t('api.credits')) + (need ? I18n.tf('api.creditsNeed', ' (needs {need})', { need: need }) : '');
       }
       if (msg && code && String(code) && String(code) !== '200') {
         return String(code) + ': ' + msg;
@@ -848,15 +848,15 @@
      request went to instead of leaving the user to guess. */
   function fishHostHint(root) {
     if (!/fishaudio\.org/i.test(String(root || ''))) return '';
-    return '（注意：fishaudio.org 不是官方站点，官方接口是 https://api.fish.audio——留空即用官方）';
+    return I18n.t('fish.hostHint');
   }
 
   function fishErrorMessage(status, raw, apiKey, phase, root) {
-    var label = phase === 'clone' ? '音色创建'
-      : (phase === 'voices' ? '音色列表' : '语音合成');
-    if (status === 401) return 'Fish Audio：API key 无效或缺失（HTTP 401，' + label + '）' + fishHostHint(root);
-    if (status === 403) return 'Fish Audio：权限不足、模型不可用或音色无权访问（HTTP 403，' + label + '）' + fishHostHint(root);
-    if (status === 429) return 'Fish Audio：超出速率或额度限制（HTTP 429，' + label + '）';
+    var label = phase === 'clone' ? I18n.t('fish.phase.clone')
+      : (phase === 'voices' ? I18n.t('fish.phase.voices') : I18n.t('fish.phase.synth'));
+    if (status === 401) return I18n.tf('fish.err.401', 'Fish Audio: invalid or missing API key (HTTP 401, {phase})', { phase: label }) + fishHostHint(root);
+    if (status === 403) return I18n.tf('fish.err.403', 'Fish Audio: permission denied, model unavailable, or this voice is not accessible (HTTP 403, {phase})', { phase: label }) + fishHostHint(root);
+    if (status === 429) return I18n.tf('fish.err.429', 'Fish Audio: rate or quota limit exceeded (HTTP 429, {phase})', { phase: label });
     /* Measured against the live endpoint: POST /model and POST /voices answer
        402 for a real balance problem, and the CURRENT TTS API also answers 402
        for a paid or misspelled engine (s2.1-pro-free is the free one). The
@@ -864,11 +864,9 @@
        the user to fix the wrong field; say which call ran out of credit. */
     if (status === 402) {
       if (phase === 'clone') {
-        return 'Fish Audio：这次创建音色需要 API 额度（HTTP 402）——'
-             + '克隆本身是付费动作，免费额度用完后要在 fish.audio 的开发者页充值。';
+        return I18n.t('fish.err.402.clone');
       }
-      return 'Fish Audio：这个引擎需要 API 额度（HTTP 402）——免费只有 s2.1-pro-free；'
-           + '付费引擎/写错的引擎名都会报这个。充值入口在 fish.audio 的开发者页。';
+      return I18n.t('fish.err.402.engine');
     }
     var j = null;
     try { j = JSON.parse(String(raw || '')); } catch (e) {}
@@ -876,18 +874,17 @@
     /* 400 "Reference not found"：the voice id is not one this account can use
        (a public voice id copied from somewhere else, or a stale one). */
     if (status === 400 && /reference not found/i.test(String(raw || ''))) {
-      return 'Fish Audio：音色 ID 无效或不属于这个账号（HTTP 400）——'
-           + '请在 fish.audio 里复制自己音色的 id，或留空用默认音色。';
+      return I18n.t('fish.err.400.voice');
     }
     /* Measured 400: "Failed to preprocess audio: {"detail":"Audio is too short"}".
        The clue arrives nested inside the API's own sentence, so the generic
        path would paste an English blob and the user cannot see what to change.
        Every shipped local sample is about seven seconds. */
     if (status === 400 && /too short/i.test(String(raw || ''))) {
-      return 'Fish Audio：音色创建失败，样本音频太短（HTTP 400）——'
-           + '每个样本至少几秒；自带样本约 7 秒，可以先直接用它们。';
+      return I18n.t('fish.err.400.short');
     }
-    return 'Fish Audio ' + label + '失败' + (detail ? '：' + detail : '（HTTP ' + status + '）');
+    return I18n.tf('fish.err.generic', 'Fish Audio {phase} failed', { phase: label })
+         + (detail ? ': ' + detail : ' (HTTP ' + status + ')');
   }
 
   function requestAudio(url, body, apiKey, timeoutMs, extraHeaders, errorMap) {
@@ -1175,7 +1172,7 @@
       var wavs = files.filter(function (f) { return /\.wav$/i.test(f.name); });
       if (wavs.length) files = wavs;
       if (!files.length) {
-        throw new Error('找不到本地莱莎原声（需要 assets/audio/prologue/jp/*.m4a 或 voice/ryza_wav/*.wav）');
+        throw new Error(I18n.t('fish.noSample'));
       }
       if (files.length > fishCloneMaxFiles) files = files.slice(0, fishCloneMaxFiles);
       return files;
@@ -1855,7 +1852,7 @@
         }, cred.apiKey, 180000).then(function (j) {
           var msg = j.choices && j.choices[0] && j.choices[0].message;
           var data = msg && msg.audio && msg.audio.data;
-          if (!data) throw new Error('接口未返回音频');
+          if (!data) throw new Error(I18n.t('api.noAudio'));
           return Api._b64ToUrl(data, tts.format === 'mp3' ? 'audio/mpeg' : 'audio/wav');
         });
       }
@@ -1899,7 +1896,7 @@
         var url = aud && aud.url;
         if (data) return Api._b64ToUrl(data, 'audio/wav');
         if (url) return Api._downloadUrl(url);
-        throw new Error('Qwen TTS 未返回音频');
+        throw new Error(I18n.t('api.qwenNoAudio'));
       });
     },
 
@@ -1910,7 +1907,7 @@
       var headers = {};
       if (apiKey) headers.Authorization = 'Bearer ' + apiKey;
       return fetch(localProxy(qwenHttpsUrl(url)), { headers: headers }).then(function (r) {
-        if (!r.ok) throw new Error('音频下载失败 HTTP ' + r.status);
+        if (!r.ok) throw new Error(I18n.tf('api.audioDownloadFail', 'Audio download failed (HTTP {status})', { status: r.status }));
         return r.blob();
       }).then(function (blob) { return URL.createObjectURL(blob); });
     },
@@ -2076,11 +2073,10 @@
            the create response, so anything else means the fast path did not
            happen and the user has to know that. */
         var vid = j && (j._id || j.voiceId || j.voice_id || j.id);
-        if (!vid) throw new Error(apiErrorMessage(j, 200, '') || '未返回音色 ID');
+        if (!vid) throw new Error(apiErrorMessage(j, 200, '') || I18n.t('fish.noVoiceId'));
         var state = j && j.state;
         if (state && String(state).toLowerCase() !== 'trained') {
-          throw new Error('音色已创建（id ' + vid + '）但状态还是 ' + state
-            + '，训练完成后才能使用。稍等片刻再点一次克隆。');
+          throw new Error(I18n.tf('fish.voiceNotTrained', 'Voice created (id {id}) but its state is still {state}; it can only be used once training finishes. Wait a moment and click clone again.', { id: vid, state: state }));
         }
         return vid;
       });
@@ -2107,7 +2103,7 @@
       }).then(function (j) {
         var out = j && j.output;
         var vid = out && (out.voice_id || out.voice);
-        if (!vid) throw new Error(apiErrorMessage(j, 200, '') || '未返回 voice_id');
+        if (!vid) throw new Error(apiErrorMessage(j, 200, '') || I18n.t('qwen.noVoiceId'));
         return vid;
       });
     },
@@ -2121,7 +2117,7 @@
     /* Reference audio must reach the API as `data:audio/wav;base64,...`. */
     _fetchAsDataUrl: function (path) {
       return fetch(path).then(function (r) {
-        if (!r.ok) throw new Error('无法读取参考音频：' + path);
+        if (!r.ok) throw new Error(I18n.tf('tts.refAudioReadFail', 'Could not read the reference audio: {path}', { path: path }));
         return r.arrayBuffer();
       }).then(function (buf) {
         var bytes = new Uint8Array(buf), s = '', i;

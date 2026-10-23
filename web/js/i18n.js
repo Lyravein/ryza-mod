@@ -2211,7 +2211,7 @@
   };
 
   var I18n = {
-    lang: 'zh',
+    lang: 'en',
     LANG_NAMES: LANG_NAMES,
     /* Derived, not a second list. Membership and order come from Langs.ALL minus
        'auto' (this picker chooses the UI language, which cannot be automatic),
@@ -2252,6 +2252,90 @@
        Everything above stays pure lookup/formatting so this module can run
        headless. */
   };
+
+  /* provider and settings strings: English default */
+  var PROVIDER_SETTINGS_STRINGS = {
+    en: {
+      'api.credits': 'Insufficient credits',
+      'api.creditsNeed': ' (needs {need})',
+      'fish.hostHint': '(Note: fishaudio.org is not the official site; the official endpoint is https://api.fish.audio — leave it empty to use the official one)',
+      'fish.phase.clone': 'Voice creation',
+      'fish.phase.voices': 'Voice list',
+      'fish.phase.synth': 'Speech synthesis',
+      'fish.err.401': 'Fish Audio: invalid or missing API key (HTTP 401, {phase})',
+      'fish.err.403': 'Fish Audio: permission denied, model unavailable, or this voice is not accessible (HTTP 403, {phase})',
+      'fish.err.429': 'Fish Audio: rate or quota limit exceeded (HTTP 429, {phase})',
+      'fish.err.402.clone': 'Fish Audio: creating a voice needs API credit (HTTP 402) — cloning is a paid action; top up on the developer page at fish.audio once the free quota is used up.',
+      'fish.err.402.engine': 'Fish Audio: this engine needs API credit (HTTP 402) — only s2.1-pro-free is free; paid engines and misspelled engine names both report this. Top up on the developer page at fish.audio.',
+      'fish.err.400.voice': 'Fish Audio: the voice ID is invalid or does not belong to this account (HTTP 400) — copy the id of your own voice from fish.audio, or leave it empty to use the default voice.',
+      'fish.err.400.short': 'Fish Audio: voice creation failed because the sample audio is too short (HTTP 400) — each sample needs at least a few seconds; the bundled samples are about 7 seconds, so you can use them directly.',
+      'fish.err.generic': 'Fish Audio {phase} failed',
+      'fish.noSample': 'Could not find the local Ryza voice samples (need assets/audio/prologue/jp/*.m4a or voice/ryza_wav/*.wav)',
+      'api.noAudio': 'The endpoint returned no audio',
+      'api.qwenNoAudio': 'Qwen TTS returned no audio',
+      'api.audioDownloadFail': 'Audio download failed (HTTP {status})',
+      'fish.noVoiceId': 'No voice ID returned',
+      'fish.voiceNotTrained': 'Voice created (id {id}) but its state is still {state}; it can only be used once training finishes. Wait a moment and click clone again.',
+      'qwen.noVoiceId': 'No voice_id returned',
+      'tts.refAudioReadFail': 'Could not read the reference audio: {path}',
+      'engine.audioQueryFail': 'audio_query failed',
+      'engine.synthesisFail': 'synthesis failed',
+      'engine.unreachable': 'cannot reach the local engine (not running, or it does not allow cross-origin calls)',
+      'settings.baseUrl.hint': 'compatible endpoint ending in /v1; config/providers.json can also hydrate it automatically',
+      'settings.cloneModel.hint': 'Model id used by the clone channel (provided by the server, e.g. the MiMo voice-clone model)',
+      'settings.refAudio.hint': 'Must be wav or mp3; the original audio inside the APK is m4a and has to be transcoded first',
+      'settings.presetModel.hint': 'Model id used by the preset-voice channel (provided by the server)',
+      'settings.importPrompt': 'Paste the configuration JSON',
+      'settings.importFail': 'Could not parse the configuration: {msg}',
+      'toast.testing': 'Testing…',
+      'toast.fail': 'Failed: {msg}',
+      'toast.synthesizing': 'Synthesizing…',
+      'toast.voiceOff': 'Voice is off'
+    },
+    ja: {
+      'api.credits': '积分不足',
+      'api.creditsNeed': '（需要 {need}）',
+      'fish.hostHint': '（注意：fishaudio.org 不是官方站点，官方接口是 https://api.fish.audio——留空即用官方）',
+      'fish.phase.clone': '音色创建',
+      'fish.phase.voices': '音色列表',
+      'fish.phase.synth': '语音合成',
+      'fish.err.401': 'Fish Audio：API key 无效或缺失（HTTP 401，{phase}）',
+      'fish.err.403': 'Fish Audio：权限不足、模型不可用或音色无权访问（HTTP 403，{phase}）',
+      'fish.err.429': 'Fish Audio：超出速率或额度限制（HTTP 429，{phase}）',
+      'fish.err.402.clone': 'Fish Audio：这次创建音色需要 API 额度（HTTP 402）——克隆本身是付费动作，免费额度用完后要在 fish.audio 的开发者页充值。',
+      'fish.err.402.engine': 'Fish Audio：这个引擎需要 API 额度（HTTP 402）——免费只有 s2.1-pro-free；付费引擎/写错的引擎名都会报这个。充值入口在 fish.audio 的开发者页。',
+      'fish.err.400.voice': 'Fish Audio：音色 ID 无效或不属于这个账号（HTTP 400）——请在 fish.audio 里复制自己音色的 id，或留空用默认音色。',
+      'fish.err.400.short': 'Fish Audio：音色创建失败，样本音频太短（HTTP 400）——每个样本至少几秒；自带样本约 7 秒，可以先直接用它们。',
+      'fish.err.generic': 'Fish Audio {phase}失败',
+      'fish.noSample': '找不到本地莱莎原声（需要 assets/audio/prologue/jp/*.m4a 或 voice/ryza_wav/*.wav）',
+      'api.noAudio': '接口未返回音频',
+      'api.qwenNoAudio': 'Qwen TTS 未返回音频',
+      'api.audioDownloadFail': '音频下载失败 HTTP {status}',
+      'fish.noVoiceId': '未返回音色 ID',
+      'fish.voiceNotTrained': '音色已创建（id {id}）但状态还是 {state}，训练完成后才能使用。稍等片刻再点一次克隆。',
+      'qwen.noVoiceId': '未返回 voice_id',
+      'tts.refAudioReadFail': '无法读取参考音频：{path}',
+      'engine.audioQueryFail': 'audio_query 失败',
+      'engine.synthesisFail': 'synthesis 失败',
+      'engine.unreachable': '连不上本地引擎（未启动，或引擎未允许跨源调用）',
+      'settings.baseUrl.hint': '兼容地址，以 /v1 结尾；也可放 config/providers.json 自动水合',
+      'settings.cloneModel.hint': '克隆通道使用的模型 id（服务端提供，如 MiMo 的声音克隆模型）',
+      'settings.refAudio.hint': '必须是 wav 或 mp3；APK 里的原声是 m4a，需先转码',
+      'settings.presetModel.hint': '预设音色通道使用的模型 id（服务端提供）',
+      'settings.importPrompt': '粘贴配置 JSON',
+      'settings.importFail': '配置解析失败：{msg}',
+      'toast.testing': '测试中…',
+      'toast.fail': '失败：{msg}',
+      'toast.synthesizing': '合成中…',
+      'toast.voiceOff': '语音已关闭'
+    }
+  };
+  Object.keys(PROVIDER_SETTINGS_STRINGS.en).forEach(function (k) {
+    T.en[k] = PROVIDER_SETTINGS_STRINGS.en[k];
+  });
+  Object.keys(PROVIDER_SETTINGS_STRINGS.ja).forEach(function (k) {
+    T.ja[k] = PROVIDER_SETTINGS_STRINGS.ja[k];
+  });
 
   global.I18n = I18n;
   global.Langs = Langs;

@@ -95,7 +95,7 @@
       App._title(w, T('settings.llm'));
       App._field(w, T('settings.baseUrl'), Config.section('llm').baseUrl,
         function (v) { Config.set('llm.baseUrl', v); },
-        { hint: 'OpenAI 兼容地址，以 /v1 结尾；也可放 config/providers.json 自动水合' });
+        { hint: 'OpenAI ' + T('settings.baseUrl.hint') });
       var models = App._llmModels || [];
       if (models.length) {
         var cur = Config.section('llm').model || '';
@@ -305,14 +305,14 @@
       if (Config.section('tts').mode === 'clone') {
         App._field(w, T('settings.model'), Config.section('tts').modelClone,
           function (v) { Config.set('tts.modelClone', v); },
-          { hint: '克隆通道使用的模型 id（服务端提供，如 MiMo 的声音克隆模型）' });
+          { hint: T('settings.cloneModel.hint') });
         App._field(w, T('settings.refAudio'), Config.section('tts').reference,
           function (v) { Config.set('tts.reference', v); },
-          { hint: '必须是 wav 或 mp3；APK 里的原声是 m4a，需先转码' });
+          { hint: T('settings.refAudio.hint') });
       } else if (Config.section('tts').mode === 'preset') {
         App._field(w, T('settings.model'), Config.section('tts').modelPreset,
           function (v) { Config.set('tts.modelPreset', v); },
-          { hint: '预设音色通道使用的模型 id（服务端提供）' });
+          { hint: T('settings.presetModel.hint') });
         App._field(w, T('settings.presetVoice'), Config.section('tts').presetVoice,
           function (v) { Config.set('tts.presetVoice', v); });
       }
@@ -532,11 +532,11 @@
       var bImp = document.createElement('button');
       bImp.className = 'btn'; bImp.textContent = T('settings.import');
       bImp.onclick = function () {
-        var txt = prompt('粘贴配置 JSON');
+        var txt = prompt(T('settings.importPrompt'));
         if (!txt) return;
         try { Config.importJSON(txt); Settings.buildSettings(); Settings.buildCharaForm();
               App.toast(I18n.t('toast.saved')); }
-        catch (e) { App.toast('配置解析失败：' + e.message, true); }
+        catch (e) { App.toast(I18n.tf('settings.importFail', 'Could not parse the configuration: {msg}', { msg: e.message }), true); }
       };
       row2.appendChild(bExp); row2.appendChild(bImp);
       w.appendChild(row2);
@@ -573,12 +573,12 @@
     _testLlm: function () {
       var llm = Config.section('llm');
       if (!Config.llmReady()) { App.toast(I18n.t('toast.needKey'), true); return; }
-      App.toast('测试中…');
+      App.toast(I18n.t('toast.testing'));
       /* stand-alone: testing the endpoint must not supersede (and so silently
          discard) a reply the player is waiting for. */
       Api.chat([], '短く一言、あいさつして。', { mode: 'chat', style: 'text', standalone: true })
         .then(function (r) { App.toast('OK：' + r.text); })
-        .catch(function (e) { App.toast('失败：' + e.message, true); });
+        .catch(function (e) { App.toast(I18n.tf('toast.fail', 'Failed: {msg}', { msg: e.message }), true); });
     },
 
     _testTts: function () {
@@ -592,7 +592,7 @@
       if (!cred.capabilities.local && cred.id !== 'fish' && Api.isPlaceholderModel(model)) {
         App.toast(I18n.t('toast.needModel'), true); return;
       }
-      App.toast('合成中…');
+      App.toast(I18n.t('toast.synthesizing'));
       /* no explicit mode → Api.speak uses the live talk mode, so this
          doubles as a preview of the per-mode voice direction. The sample is
          translated to the speech language first: a Japanese sample says
@@ -602,10 +602,10 @@
       }).then(function (line) {
         return Api.speak(line);
       }).then(function (url) {
-        if (!url) { App.toast('语音已关闭'); return; }
+        if (!url) { App.toast(I18n.t('toast.voiceOff')); return; }
         App.playUrl(url);
         App.toast('OK');
-      }).catch(function (e) { App.toast('失败：' + e.message, true); });
+      }).catch(function (e) { App.toast(I18n.tf('toast.fail', 'Failed: {msg}', { msg: e.message }), true); });
     },
 
     buildCharaForm: function () {
