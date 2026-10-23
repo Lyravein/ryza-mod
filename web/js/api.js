@@ -1,12 +1,12 @@
 /* LLM + TTS transport. Both are OpenAI-compatible chat/completions.
    Nothing here touches the original backend — that channel is gone by design. */
 (function (global) {
+  'use strict';
   /* Localisation without a hard dependency: the regression harnesses load this
      file without i18n.js, so fall back to the English default string instead of
      throwing ReferenceError. */
   function _t(k, fb) { return (typeof I18n !== 'undefined' && I18n.t) ? global.I18n.t(k) : (fb === undefined ? k : fb); }
   function _tf(k, fb, map) { return (typeof I18n !== 'undefined' && I18n.tf) ? global.I18n.tf(k, fb, map) : fb; }
-  'use strict';
 
   /* The emotion/attitude vocabulary lives in core (util.js) because this module
      (io) and avatar.js (render) must agree on it and neither may import the

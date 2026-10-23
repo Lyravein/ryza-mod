@@ -2179,7 +2179,7 @@
     hi: 'hi', id: 'id', 'pt-br': 'pt'
   };
   var Langs = {
-    ui: function () { return (Config.section('app') || {}).lang || 'zh'; },
+    ui: function () { return (Config.section('app') || {}).lang || 'en'; },
     voice: function () {
       var v = (Config.section('voice') || {}).lang || 'auto';
       return v === 'auto' ? Langs.ui() : v;
@@ -2292,7 +2292,7 @@
       'toast.synthesizing': 'Synthesizing…',
       'toast.voiceOff': 'Voice is off'
     },
-    ja: {
+    zh: {
       'api.credits': '积分不足',
       'api.creditsNeed': '（需要 {need}）',
       'fish.hostHint': '（注意：fishaudio.org 不是官方站点，官方接口是 https://api.fish.audio - 留空即用官方）',
@@ -2333,8 +2333,10 @@
   Object.keys(PROVIDER_SETTINGS_STRINGS.en).forEach(function (k) {
     T.en[k] = PROVIDER_SETTINGS_STRINGS.en[k];
   });
-  Object.keys(PROVIDER_SETTINGS_STRINGS.ja).forEach(function (k) {
-    T.ja[k] = PROVIDER_SETTINGS_STRINGS.ja[k];
+  /* The shipped wording for these was Simplified Chinese, so it belongs in T.zh.
+     T.ja has no official Japanese for them and falls through to English. */
+  Object.keys(PROVIDER_SETTINGS_STRINGS.zh).forEach(function (k) {
+    T.zh[k] = PROVIDER_SETTINGS_STRINGS.zh[k];
   });
 
   /* app chrome: English default */

@@ -22,12 +22,11 @@
    scripts/voice_regression.js exercise every row headlessly.
 */
 (function (global) {
+  'use strict';
   /* Localisation without a hard dependency: the regression harnesses load this
      file without i18n.js, so fall back to the English default string instead of
      throwing ReferenceError. */
   function _t(k, fb) { return (typeof I18n !== 'undefined' && I18n.t) ? global.I18n.t(k) : (fb === undefined ? k : fb); }
-  function _tf(k, fb, map) { return (typeof I18n !== 'undefined' && I18n.tf) ? I18n.tf(k, fb, map) : fb; }
-  'use strict';
 
   /* Every field name here must be the provider's OWN namespace. Sharing a
      field between providers is what let a switch keep the old endpoint. */
