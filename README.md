@@ -1,12 +1,12 @@
-# Ryza Chat
+# Ryza Chat (Lyravein fork)
 
-A local-first client for a conversational agent with a real-time 2D avatar.
+A local-first client for a conversational agent with a real-time 2D avatar. Forked from [zeroa234/ryza-ai-revive](https://github.com/zeroa234/ryza-ai-revive) with full internationalization, per-sentence TTS, session resume, and foreign-language leak guards.
 
-The application is a static HTML/JavaScript runtime. Thin native hosts load the same tree on Windows (Electron) and Android (WebView). Language and speech models are attached at run time through operator-configured HTTP APIs (OpenAI-compatible chat completions, plus optional TTS backends).
+The application is a static HTML/JavaScript runtime. Thin native hosts load the same tree on Windows (Electron) and Android (WebView). Language and speech models are attached at run time through operator-configured HTTP APIs (OpenAI-compatible chat completions, plus optional TTS backends like Fish Audio).
 
 面向实时二维立绘的本地对话客户端。应用核为静态 HTML/JavaScript；Windows（Electron）与 Android（WebView）仅提供宿主。语言模型与语音合成在运行时接入操作者配置的 HTTP API。
 
-Version is pinned in `config/version.json` (single source of truth for the exe and the APK); releases are at [GitHub Releases](https://github.com/zeroa234/ryza-ai-revive/releases). License: [MIT](LICENSE).
+Version is pinned in `config/version.json` (single source of truth for the exe and the APK). License: [MIT](LICENSE).
 
 ---
 
@@ -43,6 +43,15 @@ First-run help (keys, base URLs, save slots, costumes): [docs/SETUP.md](docs/SET
 - Storage-pressure canary: a full origin is reported instead of failing silently
 - Four language slots (UI, bundled voice, LLM output, TTS), seven UI locales
 - Tagged replies for scene side effects; numeric deltas in a trailing `<state>` block (no function-calling requirement)
+
+### Lyravein additions
+
+- **Full i18n coverage**: every map field, stage name, settings panel, provider message, toast, and adventure log entry follows the selected UI language instead of leaking Japanese or Chinese defaults.
+- **Per-sentence TTS**: replies are synthesized and played one sentence at a time (opt-in), with opening-clip caching and failed-clip reporting.
+- **Translation leak guard**: when the model repeats its own reply in another language (e.g., Indonesian followed by Chinese), CJK-heavy segments are dropped for non-CJK targets. Translation beats are preserved as UI labels and never spoken aloud. Proper nouns (e.g., Japanese names inside an Indonesian sentence) survive intact.
+- **Session resume**: closing and reopening the app continues the running conversation instead of starting over.
+- **Fish Audio cloning**: voice cloning support via Fish Audio API, bounded by safety limits and verified through ES5 compatibility guards.
+- **Voice test localization**: the settings voice test speaks in the chosen output language, and untranslated lines are never voiced.
 
 ---
 
@@ -83,12 +92,13 @@ Android toolchain path: environment `RYZA_ANDROID_TOOLS`, or gitignored `config/
 
 ## Tests
 
-The full list (18 node suites, the boundary guard and the packaging gate) lives in
+The full list (19 node suites including `npc_foreign_regression.js`, the boundary guard and the packaging gate) lives in
 [docs/PROJECT.md §4](docs/PROJECT.md). One-liner for the whole thing:
 
-```powershell
+```bash
 python scripts/privacy_check.py web && node scripts/layering_check.js --strict
 node scripts/boot_smoke.js && node scripts/motion_regression.js
+node scripts/npc_foreign_regression.js
 ```
 
 Contribution rules: [CONTRIBUTING.md](CONTRIBUTING.md).
