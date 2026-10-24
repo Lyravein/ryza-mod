@@ -764,7 +764,7 @@
     return err;
   }
 
-  function request(url, body, apiKey, timeoutMs, epoch) {
+  function request(url, body, apiKey, timeoutMs, epoch, signal) {
     return new Promise(function (resolve, reject) {
       var xhr = new XMLHttpRequest();
       var tracked = (epoch != null);
@@ -787,6 +787,10 @@
       xhr.ontimeout = function () { untrack(); reject(transportError('timeout')); };
       xhr.onabort = function () { untrack(); reject(staleError()); };
       if (tracked) _inflight = { xhr: xhr, epoch: epoch };
+      if (signal && signal.addEventListener) {
+        if (signal.aborted) { xhr.abort(); return; }
+        signal.addEventListener('abort', function () { try { xhr.abort(); } catch (e) {} });
+      }
       xhr.send(JSON.stringify(body));
     });
   }
@@ -892,7 +896,7 @@
          + (detail ? ': ' + detail : ' (HTTP ' + status + ')');
   }
 
-  function requestAudio(url, body, apiKey, timeoutMs, extraHeaders, errorMap) {
+  function requestAudio(url, body, apiKey, timeoutMs, extraHeaders, errorMap, signal) {
     return new Promise(function (resolve, reject) {
       var xhr = new XMLHttpRequest();
       xhr.open('POST', url, true);
@@ -918,7 +922,7 @@
         var j = null;
         j = parseBody(raw);
         if (xhr.status >= 200 && xhr.status < 300 && j && (j.audio_url || j.audioUrl)) {
-          Api._downloadUrl(j.audio_url || j.audioUrl, apiKey).then(resolve, reject);
+          Api._downloadUrl(j.audio_url || j.audioUrl, apiKey, signal).then(resolve, reject);
           return;
         }
         reject(new Error(errorMap
@@ -927,6 +931,11 @@
       };
       xhr.onerror = function () { reject(transportError('net')); };
       xhr.ontimeout = function () { reject(transportError('timeout')); };
+      xhr.onabort = function () { reject(staleError()); };
+      if (signal && signal.addEventListener) {
+        if (signal.aborted) { xhr.abort(); return; }
+        signal.addEventListener('abort', function () { try { xhr.abort(); } catch (e) {} }, { once: true });
+      }
       xhr.send(JSON.stringify(body));
     });
   }
@@ -1812,7 +1821,7 @@
        'qwen' (DashScope-compatible TTS), or 'fish' (Fish Audio Open API
        POST /speech/tts, binary audio). `mode` is the talk mode; `emotion` is
        the face currently on screen (Fish tags its delivery with it). */
-    speak: function (text, lang, mode, emotion) {
+    speak: function (text, lang, mode, emotion, signal) {
       var tts = Config.section('tts');
       if (tts.mode === 'off') return Promise.resolve(null);
       mode = mode || (Config.section('state') || {}).mode || 'chat';
@@ -1824,8 +1833,8 @@
       if (cred.capabilities.local) {
         return Providers.speakLocal(cred, { text: text, fetch: localFetch });
       }
-      if (cred.id === 'qwen') return Api._qwenSpeak(text, lang, mode);
-      if (cred.id === 'fish') return Api._fishSpeak(text, lang, mode, emotion);
+      if (cred.id === 'qwen') return Api._qwenSpeak(text, lang, mode, signal);
+      if (cred.id === 'fish') return Api._fishSpeak(text, lang, mode, emotion, signal);
       if (!cred.apiKey) return Promise.reject(new Error('NO_KEY'));
       if (!tts.apiKey) return Promise.reject(new Error('NO_KEY'));
 
@@ -1854,7 +1863,7 @@
             { role: 'assistant', content: text }
           ],
           audio: audio
-        }, cred.apiKey, 180000).then(function (j) {
+        }, cred.apiKey, 180000, undefined, signal).then(function (j) {
           var msg = j.choices && j.choices[0] && j.choices[0].message;
           var data = msg && msg.audio && msg.audio.data;
           if (!data) throw new Error(_t('api.noAudio'));
@@ -1869,7 +1878,7 @@
     },
 
     /* ------------------------------------------- Qwen / Bailian (DashScope) */
-    _qwenSpeak: function (text, lang, mode) {
+    _qwenSpeak: function (text, lang, mode, signal) {
       var tts = Config.section('tts');
       if (!tts.qwenApiKey) return Promise.reject(new Error('NO_KEY'));
       var lg = lang || (window.Langs ? Langs.tts() : 'ja');
@@ -1895,12 +1904,12 @@
       return request(localProxy(qwenTtsUrl(tts.qwenBaseUrl, model)), {
         model: model,
         input: input
-      }, tts.qwenApiKey, 180000).then(function (j) {
+      }, tts.qwenApiKey, 180000, undefined, signal).then(function (j) {
         var aud = j && j.output && j.output.audio;
         var data = aud && String(aud.data || '').trim();
         var url = aud && aud.url;
         if (data) return Api._b64ToUrl(data, 'audio/wav');
-        if (url) return Api._downloadUrl(url);
+        if (url) return Api._downloadUrl(url, '', signal);
         throw new Error(_t('api.qwenNoAudio'));
       });
     },
@@ -1908,21 +1917,25 @@
     /* DashScope often returns an http:// OSS URL. The local /_proxy only
        forwards https, and Android cleartext is blocked — rewrite first.
        Fish cached TTS URLs need the same Bearer key. */
-    _downloadUrl: function (url, apiKey) {
+    _downloadUrl: function (url, apiKey, signal) {
       var headers = {};
       if (apiKey) headers.Authorization = 'Bearer ' + apiKey;
-      return fetch(localProxy(qwenHttpsUrl(url)), { headers: headers }).then(function (r) {
+      var opts = { headers: headers };
+      if (signal) opts.signal = signal;
+      return fetch(localProxy(qwenHttpsUrl(url)), opts).then(function (r) {
         if (!r.ok) throw new Error(_tf('api.audioDownloadFail', 'Audio download failed (HTTP {status})', { status: r.status }));
         return r.blob();
       }).then(function (blob) { return URL.createObjectURL(blob); });
     },
 
     /* ------------------------------------------- Fish Audio Open API TTS */
-    _fishSpeak: function (text, lang, mode, emotion) {
+    _fishSpeak: function (text, lang, mode, emotion, signal) {
       var tts = Config.section('tts');
       if (!tts.fishApiKey) return Promise.reject(new Error('NO_KEY'));
       var root = fishApiRoot(tts.fishBaseUrl);
       var style = fishApiStyle(root);
+      var spoken = (window.Fish && window.Fish.prepare)
+        ? window.Fish.prepare(text, mode, emotion) : text;
 
       function synthModern(voice) {
         /* Current contract: engine in a header, voice as reference_id, and no
@@ -1935,8 +1948,6 @@
            the action rewriter. It is pure string handling and reads nothing
            else: this call already has the talk mode and the emotion in hand,
            so it is the caller that supplies both. */
-        var spoken = (window.Fish && window.Fish.prepare)
-          ? window.Fish.prepare(text, mode, emotion) : text;
         var body = {
           text: spoken,
           format: (tts.format === 'mp3') ? 'mp3' : 'wav'
@@ -1945,14 +1956,15 @@
         var model = String(tts.fishModel || '').trim() || FISH_MODERN_DEFAULT_MODEL;
         return requestAudio(localProxy(fishTtsUrl(tts.fishBaseUrl)), body, tts.fishApiKey, 180000,
                             { model: model },
-                            function (st, raw, key) { return fishErrorMessage(st, raw, key, 'tts', root); });
+                            function (st, raw, key) { return fishErrorMessage(st, raw, key, 'tts', root); },
+                            signal);
       }
 
       function synthLegacy(voice) {
         var model = String(tts.fishModel || '').trim() || FISH_LEGACY_DEFAULT_MODEL;
         var lg = lang || (window.Langs ? Langs.tts() : 'ja');
         var body = {
-          text: text,
+          text: spoken,
           voiceId: voice,
           reference_id: voice,
           modelId: model,
@@ -1970,7 +1982,8 @@
         }
         return requestAudio(localProxy(fishTtsUrl(tts.fishBaseUrl)), body, tts.fishApiKey, 180000,
                             null,
-                            function (st, raw, key) { return fishErrorMessage(st, raw, key, 'tts', root); });
+                            function (st, raw, key) { return fishErrorMessage(st, raw, key, 'tts', root); },
+                            signal);
       }
 
       var synth = style === 'modern' ? synthModern : synthLegacy;

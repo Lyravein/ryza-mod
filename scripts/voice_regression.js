@@ -808,6 +808,19 @@ const sleep = () => new Promise((r) => setTimeout(r, 0));
   ok(fishXhr2 !== fishXhr && !('reference_id' in fishBody2),
      'I8 and the request goes out without a reference_id (the API default voice)');
 
+  const fishAbort = new AbortController();
+  let fishAbortErr = null;
+  const fishPendingBeforeAbort = pending.filter((x) => x.sent && !x._done && !x._aborted).length;
+  Api._fishSpeak('こんにちは', 'ja', 'chat', '', fishAbort.signal)
+    .catch((e) => { fishAbortErr = e; });
+  const fishXhr3 = pending.filter((x) => x.sent && !x._done).pop();
+  fishAbort.abort();
+  await sleep();
+  ok(fishXhr3._aborted && fishAbortErr && fishAbortErr.stale === true,
+     'I8a interrupt signal aborts an in-flight Fish synthesis request');
+  ok(pending.filter((x) => x.sent && !x._done && !x._aborted).length === fishPendingBeforeAbort,
+     'I8a aborted Fish synthesis is no longer pending');
+
   ok(/s2\.1-pro-free/.test(Api._fishErrorMessage(402, '{"message":"Insufficient API credit."}', 'k', 'tts', '')),
      'I9 a 402 names the one free engine instead of a bare "insufficient credit"');
   ok(/default voice/i.test(Api._fishErrorMessage(400, '{"message":"Reference not found"}', 'k', 'tts', '')),

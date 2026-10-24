@@ -275,21 +275,50 @@ public final class AssetServer extends Thread {
         return true;
     }
 
+    private static final String PRIVATE_SUFFIX =
+        "\\.(ts\\.net|local|lan|home|internal)$";
+
+    private static boolean isPrivateIpv4(String host) {
+        String[] parts = host.split("\\.", -1);
+        if (parts.length != 4) return false;
+        int[] octets = new int[4];
+        for (int i = 0; i < 4; i++) {
+            if (parts[i].isEmpty() || parts[i].length() > 3) return false;
+            for (int j = 0; j < parts[i].length(); j++) {
+                if (!Character.isDigit(parts[i].charAt(j))) return false;
+            }
+            octets[i] = Integer.parseInt(parts[i]);
+            if (octets[i] > 255) return false;
+        }
+        if (octets[0] == 127) return true;
+        return octets[0] == 100 && octets[1] >= 64 && octets[1] <= 127;
+    }
+
+    private static boolean isPrivateHttpHost(String host) {
+        if (host == null) return false;
+        String h = host.trim().toLowerCase(Locale.ROOT);
+        if (h.startsWith("[") && h.endsWith("]")) {
+            h = h.substring(1, h.length() - 1);
+        }
+        if (h.equals("localhost") || h.equals("::1")) return true;
+        if (isPrivateIpv4(h)) return true;
+        if (h.matches("^f[cd][0-9a-f]{2}:.*")) return true;
+        return h.matches(PRIVATE_SUFFIX);
+    }
+
     /**
-     * https anywhere, http only on loopback.
+     * https anywhere, http only on a host that is provably private.
      *
-     * The https rule exists so an API key never crosses the network in clear.
-     * A loopback target never crosses the network: Ollama / LM Studio on the
-     * operator's own machine, so refusing them broke the local-first setup
-     * this client is built around. Everything not loopback still needs https.
-     * Same rule in scripts/serve.py and desktop/main.js.
+     * This must stay aligned with scripts/serve.py and desktop/main.js:
+     * loopback, Tailscale CGNAT, IPv6 unique-local, and explicit private
+     * namespaces are local-only targets; public hosts still require https.
      */
     private static boolean proxyTargetAllowed(String target) {
         try {
             java.net.URI u = java.net.URI.create(target);
             String scheme = u.getScheme() == null ? "" : u.getScheme().toLowerCase(Locale.ROOT);
             if (scheme.equals("https")) return true;
-            return scheme.equals("http") && isLoopbackHost(u.getHost());
+            return scheme.equals("http") && isPrivateHttpHost(u.getHost());
         } catch (Exception e) {
             return false;
         }

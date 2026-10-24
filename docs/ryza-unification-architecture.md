@@ -505,7 +505,7 @@ vad-web **ISC**。provenance 在 `temp/vad-spike/ARTIFACTS.txt`（temp/ 可清�
 | 三端 `/_proxy` 行为仍有差异 | desktop 的 GET 超时 180 s（另两端 120 s）；desktop 会把 `HEAD/OPTIONS/PUT` 原样转发（另两端本地应答或 405）；只有 Android 每次响应都带 `ACAO:*` | 守卫只查"路由标记齐全"。差异都在边缘（XHR 必带 Content-Length、GET 音频不会跑 180 s），但**要同步就该按 desktop 为准收一遍** |
 | 默认 TTS 模型 id 三处重复 | `config.DEFAULTS` / `providers.js` / `api.js` 的兜底 | 清空模型名时会拿到 api.js 的兜底值，改默认值要动三处 |
 | `util.js` 里时段有两个表 | `TOD_START`（代表小时 6/12/17/21）与 `hourToTod` 的边界（5/11/17/20）相差一小时，同文件但两套数 | 语义不同（代表采样点 vs 边界）却都叫"start"，容易改错；应在同一处派生 |
-| 零散死代码 | `.field-row` CSS 无人使用；`app.fullscreen` 写了不读；`Api.screenTagLine/detectThinkingStyle/QWEN_DEFAULT_BASE` 无外部消费者；Android `MainActivity` 的 `8765` 写了两遍 | 都不影响行为；清理时注意 `_localProxy`/`setSummarizer` 是**测试接缝**，不是死代码 |
+| 零散死代码 | `.field-row` CSS 无人使用；`app.fullscreen` 写了不读；Android `MainActivity` 的 `8765` 写了两遍；曾误判 `Api.screenTagLine/detectThinkingStyle/QWEN_DEFAULT_BASE` 无消费者 | 这些项不影响行为；`screenTagLine`/`detectThinkingStyle`/`QWEN_DEFAULT_BASE` 仍被 `api.js` 内部使用。清理时注意 `_localProxy`/`setSummarizer` 是**测试接缝**，不是死代码。`Avatar.noteSemanticAction` 已在 reply 的 `*...*` action 路径接通，用于暂停自动手势 |
 
 
 ---

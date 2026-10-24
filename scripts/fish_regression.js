@@ -65,6 +65,9 @@ console.log('=== 1. action markup is rewritten so Fish performs it ===');
   const F = loadFish().Fish;
   const cases = [
     ['*giggles*', '[giggles]', 'single asterisk span'],
+    ['*tangan ke wajah, menutupi pipi yang panas*', '[tangan ke wajah, menutupi pipi yang panas]', 'long roleplay action from reported chat'],
+    ['*' + 'x'.repeat(120) + '*', '[' + 'x'.repeat(120) + ']', 'action at the expanded cap'],
+    ['*' + 'x'.repeat(121) + '*', '*' + 'x'.repeat(121) + '*', 'over-cap aside remains text'],
     ['へへ、*giggles* そう？', 'へへ、[giggles] そう？', 'span inside a sentence'],
     ['（こっそり）ねえ', '[こっそり]ねえ', 'full-width CJK parens'],
     ['(sighs)', '[sighs]', 'short half-width span'],
@@ -140,6 +143,9 @@ console.log('\n=== 3. cue selection ===');
   eq(F.cueFor('asmr', ''), F.MODE_CUE.asmr, 'mode cue wins');
   eq(F.cueFor('story', 'happy'), F.MODE_CUE.story, 'mode beats emotion');
   eq(F.cueFor('chat', 'happy'), F.EMOTION_CUE.happy, 'emotion used when mode has none');
+  eq(F.EMOTION_CUE.shy, '[clear, natural conversational voice, slightly flustered, steady breath, no sighs or gasps]',
+     'shy cue avoids breathy/sighing direction');
+  eq(F.cueFor('chat', 'shy'), F.EMOTION_CUE.shy, 'shy cue is selected in chat mode');
   eq(F.cueFor('', 'happy'), F.EMOTION_CUE.happy, 'empty mode falls through to emotion');
   eq(F.cueFor('chat', 'neutral'), '', 'neutral maps to the empty cue');
   eq(F.cueFor('chat', 'nonexistent'), '', 'unknown emotion contributes nothing');
@@ -170,6 +176,11 @@ console.log('\n=== 4. the emotion arrives as an argument and nowhere else ===');
 console.log('\n=== 5. prepare() composes both, in the right order ===');
 {
   const F = loadFish().Fish;
+  eq(F.prepare('*tangan ke wajah, menutupi pipi yang panas*', 'chat', 'shy'),
+     F.EMOTION_CUE.shy + ' [tangan ke wajah, menutupi pipi yang panas]',
+     'reported long roleplay action is rewritten before Fish synthesis');
+  eq(F.prepare('*' + 'x'.repeat(121) + '*', 'chat', 'neutral'),
+     '*' + 'x'.repeat(121) + '*', 'over-cap text remains unchanged');
   eq(F.prepare('*giggles* hello', 'chat', 'happy'),
      F.EMOTION_CUE.happy + ' [giggles] hello', 'cue is prepended AFTER rewriting');
   eq(F.prepare('hello', 'chat', 'neutral'), 'hello', 'no cue -> text unchanged');
@@ -193,6 +204,8 @@ console.log('\n=== 6. the file is wired into the page ===');
   ok(/window\.Fish && window\.Fish\.prepare/.test(api),
      'api.js guards on window.Fish, so a load-order miss degrades to raw text');
   ok(/text: spoken/.test(api), 'the modern Fish surface sends the prepared text');
+  const legacy = api.slice(api.indexOf('function synthLegacy'));
+  ok(/text: spoken/.test(legacy), 'the legacy Fish surface also sends the prepared text');
 }
 
 console.log('\n=== 7. the architecture guard can see this file ===');

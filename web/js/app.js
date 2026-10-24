@@ -27,6 +27,7 @@
     _inTutorial: false,
     _lastText: '',
     _invBag: 'you',
+    _voiceCachePending: {},
 
     /* ------------------------------------------------------------- utils */
     toast: function (msg, isErr) {
@@ -347,7 +348,7 @@
       }
       if (window.Turn) {
         Turn.setTurnCanceller(function (reason) { return Api.newTurn(reason); });
-        Turn.setSynth(function (text, meta) {
+        Turn.setSynth(function (text, meta, signal) {
           var st2 = Config.section('state');
           var replyL = (window.Langs && Langs.llm) ? Langs.llm() : 'ja';
           var ttsL = (window.Langs && Langs.tts) ? Langs.tts() : replyL;
@@ -365,7 +366,7 @@
                not as the player (web/js/echo.js). This is the single funnel
                every synthesized line passes through. */
             if (window.Voice && Voice.noteAssistantSpeech) Voice.noteAssistantSpeech(t);
-            return Api.speak(t, ttsL, (meta && meta.mode) || st2.mode, (meta && meta.emotion) || '')
+            return Api.speak(t, ttsL, (meta && meta.mode) || st2.mode, (meta && meta.emotion) || '', signal)
               .then(function (url) {
                 /* 同一条台词只缓存一次：key = 文本 + 模式。
                    缓存失败绝不影响播放（VoiceCache 自己吞异常）。
@@ -378,9 +379,15 @@
                     App._voiceSeq = (App._voiceSeq || 0) + 1;
                     var key = 'v' + App._voiceSeq + ':' + t.slice(0, 40);
                     App._lastVoiceKey = key;
-                    fetch(url).then(function (r) { return r.blob(); }).then(function (bl) {
+                    var cacheJob = fetch(url).then(function (r) { return r.blob(); }).then(function (bl) {
                       return VoiceCache.put(key, bl, { text: t, url: '' });
                     }).catch(function () {});
+                    App._voiceCachePending[url] = cacheJob;
+                    cacheJob.then(function () {
+                      delete App._voiceCachePending[url];
+                    }, function () {
+                      delete App._voiceCachePending[url];
+                    });
                   } catch (e) {}
                 }
                 return url;
@@ -2075,7 +2082,15 @@
            superseded line over the new one, with the new reply queued behind
            it. */
         if (!App._turnCurrent(turnEpoch)) return;
-        if (mine) App.speakThen(mine, reply.emotion);
+           if (mine) {
+             /* Keep automatic gestures out of the way while a roleplay action is
+                being presented. Fish rewrites the same action markup for TTS. */
+             if (window.Avatar && Avatar.noteSemanticAction &&
+                 /(^|[^*])\*[^*\n]{1,120}\*(?!\*)/.test(mine)) {
+               Avatar.noteSemanticAction();
+             }
+             App.speakThen(mine, reply.emotion);
+           }
         if (!others.length) return;
         if (window.Turn && Turn.isSpeaking()) {
           var off = Turn.on(function (ev) {
@@ -2113,6 +2128,9 @@
         if (!a) return;
         try {
           a.src = url;
+          var base = (window.Sound && Sound._gain) ? Sound._gain('voice')
+            : (Number(Config.section('app').volume) || 0.9);
+          a.volume = Math.max(0, Math.min(1, base));
           a.playbackRate = 1;
           a.play().catch(function () {});
           Avatar.setTalking(true);
@@ -2133,13 +2151,25 @@
        detuned (AUDIT 8). */
     _stopAudio: function (url, holdMs) {
       var a = App.audio;
-      if (a) {
+      var ownsAudio = !a || !url || a.src === url;
+      if (a && ownsAudio) {
         try { a.pause(); } catch (e) {}
         a.playbackRate = 1;
       }
-      Avatar.setTalking(false);
-      if (url) URL.revokeObjectURL(url);
-      App._bubbleHold(holdMs);
+      if (ownsAudio) Avatar.setTalking(false);
+      if (url) {
+        var pending = App._voiceCachePending[url];
+        if (pending) {
+          pending.then(function () {
+            try { URL.revokeObjectURL(url); } catch (e) {}
+          }, function () {
+            try { URL.revokeObjectURL(url); } catch (e) {}
+          });
+        } else {
+          URL.revokeObjectURL(url);
+        }
+      }
+      if (ownsAudio) App._bubbleHold(holdMs);
     },
 
     /* Speech playback for Turn: identical bookkeeping to playUrl, plus the

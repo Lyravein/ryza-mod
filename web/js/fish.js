@@ -43,7 +43,7 @@
     happy:    '[cheerful and warm]',
     laughing: '[laughing brightly]',
     tease:    '[teasing and playful]',
-    shy:      '[shy and bashful]',
+    shy:      '[clear, natural conversational voice, slightly flustered, steady breath, no sighs or gasps]',
     cuddle:   '[soft, affectionate and sweet]',
     sad:      '[sad and downcast]',
     crying:   '[crying, voice trembling]',
@@ -99,7 +99,7 @@
      into something that reads worse. */
   function actionsToCues(s) {
     s = String(s == null ? '' : s);
-    s = s.replace(/(^|[^*])\*([^*\n]{1,40}?)\*(?!\*)/g, '$1[$2]');
+    s = s.replace(/(^|[^*])\*([^*\n]{1,120}?)\*(?!\*)/g, '$1[$2]');
     s = s.replace(/（([^（）\n]{1,40}?)）(?!）)/g, function (m, inner, off, whole) {
       if (off > 0 && whole.charAt(off - 1) === '（') return m;
       return /[.!?。！？]/.test(inner) ? m : '[' + inner + ']';
