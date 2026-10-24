@@ -9,8 +9,8 @@ android {
         applicationId "com.ryza.chat"
         minSdk 24
         targetSdk 34
-        versionCode 26
-        versionName "1.2.23"
+        versionCode 27
+        versionName "1.2.24"
     }
     buildTypes {
         release {
