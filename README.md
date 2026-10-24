@@ -4,8 +4,6 @@ A local-first client for a conversational agent with a real-time 2D avatar. Fork
 
 The application is a static HTML/JavaScript runtime. Thin native hosts load the same tree on Windows (Electron) and Android (WebView). Language and speech models are attached at run time through operator-configured HTTP APIs (OpenAI-compatible chat completions, plus optional TTS backends like Fish Audio).
 
-面向实时二维立绘的本地对话客户端。应用核为静态 HTML/JavaScript；Windows（Electron）与 Android（WebView）仅提供宿主。语言模型与语音合成在运行时接入操作者配置的 HTTP API。
-
 Version is pinned in `config/version.json` (single source of truth for the exe and the APK). License: [MIT](LICENSE).
 
 ---
@@ -22,16 +20,45 @@ Version is pinned in `config/version.json` (single source of truth for the exe a
 
 The three hosts share one proxy contract, `GET/POST /_proxy`, so browser and WebView code can call operator endpoints without a CORS failure. The development server is `python scripts/serve.py` (`http://127.0.0.1:8765/`). A plain `http.server` is insufficient because it does not implement the proxy.
 
-三端共用 `/_proxy`。开发请用 `scripts/serve.py`，不要用 `python -m http.server`。
-
 Inference is not bundled. Settings require an OpenAI-compatible base URL, model identifier, and API key; TTS is optional and uses per-provider credential fields (`openai` / `qwen` / `fish`). NSFW/undress is disabled by default and can only be enabled explicitly in Settings; the AI cannot enable it while permission is off.
-
-推理与语音不随仓库分发，由设置页配置。
 
 Further module-level notes: [docs/PROJECT.md](docs/PROJECT.md).
 First-run help (keys, base URLs, save slots, costumes): [docs/SETUP.md](docs/SETUP.md).
+User setup (OpenRouter and Fish Audio): [docs/SETUP.md#user-setup](docs/SETUP.md#user-setup).
 
 ---
+
+## User setup
+
+The app does not provide an AI account or proxy key. Create provider accounts
+yourself, then enter the credentials only in the in-app Settings screen.
+
+### OpenRouter (LLM)
+
+1. Sign in at [openrouter.ai](https://openrouter.ai/).
+2. Open [Keys](https://openrouter.ai/keys), create a key, and copy it once.
+3. In the game, open **Settings → LLM** and enter:
+   - Base URL: `https://openrouter.ai/api/v1`
+   - API key: the key you just created
+   - Model: select one with **Fetch model list**, or enter the provider model id
+4. Save the settings and send a test message. Free models can be slower or
+   temporarily unavailable; the provider may also apply usage limits.
+
+### Fish Audio (TTS)
+
+1. Sign in at [fish.audio](https://fish.audio/).
+2. Create or copy an API key from your Fish Audio account.
+3. In the game, open **Settings → TTS**, choose **Fish Audio**, and enter:
+   - Base URL: leave empty to use `https://api.fish.audio`
+   - API key: your Fish Audio key
+   - Model: `s2.1-pro-free` when that model is available to your account
+   - Voice ID: optional; leave empty to use Fish Audio's default voice
+4. Enable TTS and use the voice test. The selected voice is stored locally in
+   the app profile, not in this repository.
+
+Never paste API keys into GitHub issues, screenshots, `config/providers.json`,
+source files, or committed documentation. If a key is exposed, revoke it at
+the provider immediately and create a replacement.
 
 ## Capabilities
 
@@ -59,10 +86,8 @@ First-run help (keys, base URLs, save slots, costumes): [docs/SETUP.md](docs/SET
 
 Structural tables (JSON, atlas, SVG) live in `web/assets/` and are versioned with the client. Large binaries (raster, audio, skeleton) are excluded from version control and restored before a full session or packaged build:
 
-结构表随仓库版本管理；体积较大的栅格图、音频与骨骼二进制在完整运行或打包前本地恢复：
-
 ```powershell
-python scripts/restore_media.py path\to\RyzaChat-1.2.23.apk
+python scripts/restore_media.py path\to\RyzaChat-1.2.24.apk
 python scripts/restore_media.py path\to\win-unpacked\resources\web
 ```
 

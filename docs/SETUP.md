@@ -23,6 +23,45 @@ skip the LLM — without it the app has nothing to say.
 
 ---
 
+## User setup
+
+This app does not create provider accounts or issue API keys. Create the
+accounts yourself, then enter the credentials in the in-app Settings screen.
+Keys are stored in the local app profile and must never be committed to the
+repository or pasted into support requests.
+
+### OpenRouter: create the LLM key
+
+1. Sign in at [openrouter.ai](https://openrouter.ai/).
+2. Open [openrouter.ai/keys](https://openrouter.ai/keys), choose **Create Key**,
+   and copy the key. It may only be shown in full once.
+3. In the game, open **Settings → LLM** and enter:
+   - **Base URL:** `https://openrouter.ai/api/v1`
+   - **API key:** the OpenRouter key
+   - **Model:** use **Fetch model list**, then choose a model
+4. Save the settings and send a test message. Free models may be slower and
+   can have provider-specific availability or rate limits.
+
+The Base URL must be the API root ending in `/v1`. Do not enter the OpenRouter
+website URL or the full `/chat/completions` URL; the app appends that path.
+
+### Fish Audio: configure TTS
+
+1. Sign in at [fish.audio](https://fish.audio/).
+2. Create or copy an API key from your Fish Audio account.
+3. In the game, open **Settings → TTS**, choose **Fish Audio**, and enter:
+   - **Base URL:** leave empty for the official API
+     (`https://api.fish.audio`)
+   - **API key:** your Fish Audio key
+   - **Model:** `s2.1-pro-free` when available for your account
+   - **Voice ID:** optional; leave empty for Fish Audio's default voice
+4. Enable TTS, save the settings, and use the voice test.
+
+Fish Audio and OpenRouter credentials are separate. The app keeps provider
+fields separate so changing the LLM provider does not reuse a TTS key.
+
+---
+
 ## 1. The text model (LLM)
 
 Fill three fields:
@@ -106,7 +145,7 @@ Notes:
 ## 3. Install
 
 **Android** — download `RyzaChat-<version>.apk` from
-[Releases](https://github.com/zeroa234/ryza-ai-revive/releases) and open it. The
+[Releases](https://github.com/Lyravein/ryza-mod/releases) and open it. The
 app asks for the microphone only, and only when you first use speech input; the
 file picker for outfit import uses the system's per-file grant, so no storage
 permission is requested.
