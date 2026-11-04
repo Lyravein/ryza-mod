@@ -188,6 +188,11 @@
         document.addEventListener('visibilitychange', function () {
           if (!document.hidden) App._tickTime();
         });
+        ['pointerdown', 'keydown', 'touchstart'].forEach(function (evName) {
+          window.addEventListener(evName, function () {
+            if (window.Proactive && Proactive.touch) Proactive.touch();
+          }, { passive: true });
+        });
         App.updateHud();
         App.renderWorld();
         if (App._memNotice === 'recovered') App.toast(I18n.t('memory.recovered'));
@@ -206,6 +211,19 @@
         Alarm.load();
         Alarm.render(document.getElementById('alarm-list'), App.playFile);
         Alarm.start(App._onAlarm);
+        if (window.Proactive) {
+          Proactive.setPresenter(App._onProactiveSpark);
+          Proactive.setBusyChecker(function () {
+            var scrim = document.getElementById('modal-scrim');
+            var modalOpen = scrim && !scrim.classList.contains('hidden');
+            var side = document.getElementById('side-menu');
+            var sideOpen = side && side.classList.contains('open');
+            var viewTalk = document.getElementById('view-talk');
+            var inOtherView = viewTalk && !viewTalk.classList.contains('active');
+            return App.speaking || modalOpen || sideOpen || inOtherView || App._inTutorial;
+          });
+          Proactive.start();
+        }
         Quests.render(document.getElementById('quest-list'), {});
         Daily.render(document.getElementById('daily-body'));
         App.renderSkins();
@@ -616,6 +634,9 @@
 
     _finishSpeaking: function () {
       App.speaking = false;
+      App._proactiveIntentId = null;
+      var btn = document.getElementById('btn-send');
+      if (btn) btn.disabled = false;
       App._syncMoodExpression(false);
     },
 
@@ -1564,7 +1585,16 @@
       var send = document.getElementById('btn-send');
       var go = function () {
         var text = input.value.trim();
-        if (!text || App.speaking) return;
+        if (!text) return;
+        if (App._proactiveIntentId) {
+          /* Sticky preemption: user types while proactive spark is speaking -> cancel proactive */
+          if (window.Turn && Turn.cancelIntent) {
+            Turn.cancelIntent(App._proactiveIntentId, 'user-input');
+          }
+          App._finishSpeaking();
+        } else if (App.speaking) {
+          return;
+        }
         input.value = '';
         App.say(text);
       };
@@ -2000,17 +2030,25 @@
         return;
       }
       App._lastText = text;
+      if (window.Proactive && Proactive.touch) Proactive.touch();
+      if (App._proactiveIntentId) {
+        if (window.Turn && Turn.cancelIntent) {
+          Turn.cancelIntent(App._proactiveIntentId, 'user-turn');
+        }
+        App._proactiveIntentId = null;
+      }
+
+      /* A new turn supersedes whatever was in flight: it stops her speech,
+         drops queued lines, and invalidates a reply still on the wire (the
+         epoch Api.chat re-checks when it resolves). Run beginTurn BEFORE setting
+         App.speaking = true so settlement of cancelled speech cannot clear the lock. */
+      var turnEpoch = (window.Turn && Turn.beginTurn) ? Turn.beginTurn('say') : null;
       var retryBar = document.getElementById('retry-bar');
       if (retryBar) retryBar.classList.add('hidden');
       App.speaking = true;
       document.getElementById('btn-send').disabled = true;
       App.showTyping();
       Welcome.mark('talk');            /* official activity: app_launched x5 */
-
-      /* A new turn supersedes whatever was in flight: it stops her speech,
-         drops queued lines, and invalidates a reply still on the wire (the
-         epoch Api.chat re-checks when it resolves). */
-      var turnEpoch = (window.Turn && Turn.beginTurn) ? Turn.beginTurn('say') : null;
       /* 本轮用户说的话作为长期记忆的相关度线索（cue），
          并把这一轮记进待归纳队列（攒够 PENDING_MAX 自动归纳一次）。 */
       if (window.LongTerm) {
@@ -2540,6 +2578,49 @@
       if (App._ringAlarm) Alarm.snooze(App._ringAlarm);
       App._dismissAlarm();
       App.toast(I18n.t('alarm.snooze'));
+    },
+
+    /* -------------------------------------------------- proactive spark */
+    _onProactiveSpark: function (spark) {
+      if (!spark || !spark.text) return;
+      if (App.speaking) return;
+      App.showBubble(spark.text);
+      if (window.Avatar && Avatar.setEmotion) {
+        Avatar.setEmotion(spark.emotion || 'normal', 'agree');
+      }
+      var st = Config.section('state');
+      var app = Config.section('app');
+      if (app.voice && st.style !== 'text' && Config.section('tts').mode !== 'off' && window.Turn) {
+        App.speaking = true;
+        var intent = Turn.speak(spark.text, {
+          priority: spark.priority || 1,
+          behavior: 'queue',
+          ownerId: 'proactive',
+          emotion: spark.emotion || '',
+          mode: st.mode
+        });
+        if (intent && intent.id) {
+          App._proactiveIntentId = intent.id;
+          if (typeof Turn.on === 'function') {
+            var unsub = Turn.on(function (ev) {
+              if (!ev) return;
+              var matchesId = (ev.intentId === intent.id) || (ev.intent && ev.intent.id === intent.id);
+              if (!matchesId) return;
+              if (ev.type === 'end' || ev.type === 'cancel' || ev.type === 'error') {
+                if (typeof unsub === 'function') unsub();
+                if (App._proactiveIntentId === intent.id) {
+                  App._proactiveIntentId = null;
+                  App._finishSpeaking();
+                }
+              }
+            });
+          }
+        }
+      } else {
+        setTimeout(function () {
+          if (!App.speaking) App._syncMoodExpression(false);
+        }, 5000);
+      }
     },
 
     /* -------------------------------------------------------- modal forms */

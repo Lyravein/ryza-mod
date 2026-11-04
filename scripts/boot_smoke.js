@@ -165,8 +165,10 @@ sandbox.cancelAnimationFrame = () => {};
 const variantCalls = [];
 const Avatar = {
   _initCb: null,
+  _emotion: '',
   init(cb) { this._initCb = cb; setTimeout(cb, 0); },
-  resize() {}, onModeChange() {}, setHidden() {}, setEmotion() {}, setTalking() {},
+  resize() {}, onModeChange() {}, setHidden() {}, setEmotion(em) { this._emotion = em; }, setTalking() {},
+  currentEmotion() { return this._emotion || ''; },
   setTalkingEnvelope() {}, loadScene(id, tod, cb) { cb && cb(null); },
   loadSkin(id, cb) { cb && cb(); }, postureKey() { return 'posture_sitting'; },
   supportsBothPostures() { return false; }, hitPartAt() { return null; },
@@ -183,7 +185,7 @@ const Avatar = {
   panelFraction() { return this._panelFrac; },
   setPanelFraction(f) { this._panelFrac = Number(f) || 0; },
   isHidden() { return false; }, cssZoom() { return 1; },
-  currentEmotion() { return ''; }, currentAttitude() { return ''; },
+  currentEmotion() { return this._emotion || ''; }, currentAttitude() { return this._attitude || ''; },
   screenState() { return { emotion: '', attitude: '' }; }
 };
 sandbox.Avatar = Avatar;
@@ -447,7 +449,7 @@ for (const f of ['util.js', 'config.js', 'i18n.js', 'api.js', 'providers.js', 't
 
     /* ---- mood and tap expression reactions ---- */
     let lastEmotion = '', lastAttitude = '';
-    Avatar.setEmotion = (em, att) => { lastEmotion = em; lastAttitude = att; };
+    Avatar.setEmotion = (em, att) => { Avatar._emotion = em; lastEmotion = em; lastAttitude = att; };
 
     sandbox.Game.setMood('sulk');
     sandbox.App._syncMoodExpression();
@@ -813,6 +815,142 @@ for (const f of ['util.js', 'config.js', 'i18n.js', 'api.js', 'providers.js', 't
       sandbox.Api.fishCloneVoice = start;
       sandbox.Config.set('tts.provider', ttsWas);
       sandbox.Settings.buildSettings();
+    }
+
+    /* -------------------------------- proactive spark & preemption smoke */
+    {
+      const Proactive = sandbox.Proactive;
+      ok(!!Proactive && typeof Proactive.start === 'function', 'Proactive loaded and started in App');
+
+      // 1. Presenter delivery
+      sandbox.App.speaking = false;
+      sandbox.App._onProactiveSpark({ text: 'ねえねえ、次はどこへ行こうか？', emotion: 'happy', priority: 2 });
+      ok(document.getElementById('bubble-text').textContent === 'ねえねえ、次はどこへ行こうか？',
+         'Proactive spark text rendered in bubble');
+      ok(sandbox.Avatar.currentEmotion() === 'happy',
+         'Avatar emotion updated to spark emotion');
+
+      // 2. Live Busy Checker integration
+      const isBusyFn = Proactive.state ? (() => {
+        // Evaluate with current live state
+        return Proactive.evaluate(Date.now(), { game: sandbox.Game }) === null;
+      }) : null;
+
+      // When speaking: busy checker suppresses
+      sandbox.App.speaking = true;
+      let blockedSpark = null;
+      Proactive.setPresenter((sp) => { blockedSpark = sp; });
+      Proactive.tick(Date.now());
+      ok(blockedSpark === null, 'Proactive spark suppressed while App.speaking is true');
+      sandbox.App.speaking = false;
+
+      // When modal scrim open: busy checker suppresses
+      const scrim = document.getElementById('modal-scrim');
+      scrim.classList.remove('hidden');
+      Proactive.tick(Date.now());
+      ok(blockedSpark === null, 'Proactive spark suppressed while modal scrim is visible');
+      scrim.classList.add('hidden');
+
+      // 3. User interaction touch & preemption
+      const touchBefore = Proactive.state().lastActivityTime;
+      // Simulate user activity event
+      Proactive.touch(touchBefore + 5000);
+      ok(Proactive.state().lastActivityTime === touchBefore + 5000,
+         'User activity updates Proactive lastActivityTime');
+
+      // Say preemption: user turn resets activity and claims turn
+      sandbox.Config.set('llm.apiKey', 'dummy-key');
+      sandbox.Game.refill();
+      sandbox.Api.chat = () => new Promise(() => {});
+      sandbox.App.say('test user preemption');
+      ok(sandbox.App.speaking === true, 'App.say claims speaking and preempts');
+      sandbox.App._finishSpeaking();
+      ok(sandbox.App.speaking === false, 'App._finishSpeaking releases speaking state');
+
+      // 4. Voiced Proactive Spark Lifecycle & Typed User Preemption via Submit Button
+      sandbox.Config.section('app').voice = true;
+      sandbox.Config.section('tts').mode = 'openai';
+      sandbox.Config.section('state').style = 'voice';
+      sandbox.Game.setMood('normal');
+
+      // Start voiced proactive spark
+      sandbox.App._onProactiveSpark({ text: 'proactive voiced remark', emotion: 'happy', priority: 1 });
+      ok(sandbox.App.speaking === true, 'voiced spark sets App.speaking true');
+      ok(!!sandbox.App._proactiveIntentId, 'voiced spark assigns _proactiveIntentId');
+      const activeSparkIntentId = sandbox.App._proactiveIntentId;
+
+      // User types and clicks Send -> must preempt proactive intent and claim turn
+      const inputEl = document.getElementById('input');
+      const sendBtn = document.getElementById('btn-send');
+      inputEl.value = 'user cuts in with question';
+      sendBtn.onclick(); // triggers actual submit handler in _bindTalk
+
+      ok(sandbox.App._proactiveIntentId === null,
+         'typed submit preempts and clears _proactiveIntentId');
+      ok(sandbox.App.speaking === true,
+         'App.speaking is retained by user say()');
+      sandbox.App._finishSpeaking();
+      ok(sandbox.App.speaking === false,
+         'speaking cleared after user turn finishes');
+
+      // 5. Voiced Proactive Spark Natural Asynchronous Completion
+      sandbox.Game.setMood('tired'); // idle mood should map to sad
+      let synthResolve, playerResolve;
+      sandbox.Turn.setSynth(() => new Promise((res) => { synthResolve = res; }));
+      sandbox.Turn.setPlayer(() => new Promise((res) => { playerResolve = res; }));
+
+      sandbox.App._onProactiveSpark({ text: 'second voiced spark', emotion: 'happy', priority: 1 });
+      ok(sandbox.App.speaking === true, 'second voiced spark locks speaking');
+      ok(sandbox.Avatar.currentEmotion() === 'happy', 'emotion reflects proactive spark');
+      ok(!!sandbox.App._proactiveIntentId, 'proactive intent active during synthesis');
+
+      // Resolve synthesis -> progresses to player
+      synthResolve('blob:fake-audio-url');
+      await new Promise(r => setTimeout(r, 0));
+      ok(sandbox.App.speaking === true, 'still speaking during playback');
+
+      // Resolve playback -> natural asynchronous completion
+      playerResolve();
+      await new Promise(r => setTimeout(r, 0));
+      ok(sandbox.App.speaking === false,
+         'natural playback completion unlocks App.speaking via Turn.on');
+      ok(sandbox.App._proactiveIntentId === null,
+         '_proactiveIntentId cleared on natural completion');
+      ok(sandbox.Avatar.currentEmotion() === 'sad',
+         'idle mood expression (sad) restored upon natural completion');
+
+      // 6. Voiced Proactive Spark Synthesis/Player Error Rejection Path
+      sandbox.Game.setMood('sulk'); // idle mood should map to angry
+      let rejectPlayer;
+      sandbox.Turn.setSynth(() => Promise.resolve('blob:fake-audio-err'));
+      sandbox.Turn.setPlayer(() => new Promise((_, rej) => { rejectPlayer = rej; }));
+
+      sandbox.App._onProactiveSpark({ text: 'third spark with err', emotion: 'happy', priority: 1 });
+      ok(sandbox.App.speaking === true, 'third voiced spark locks speaking');
+      await new Promise(r => setTimeout(r, 0));
+
+      // Reject player to emit error event
+      rejectPlayer(new Error('audio playback device lost'));
+      await new Promise(r => setTimeout(r, 0));
+      ok(sandbox.App.speaking === false,
+         'playback rejection unlocks App.speaking via Turn.on');
+      ok(sandbox.App._proactiveIntentId === null,
+         '_proactiveIntentId cleared on error rejection');
+      ok(sandbox.Avatar.currentEmotion() === 'angry',
+         'idle mood expression (angry) restored upon error rejection');
+
+      // 7. Synthesis-level Error Rejection Path
+      sandbox.Game.setMood('tired'); // idle mood maps to sad
+      sandbox.Turn.setSynth(() => Promise.reject(new Error('TTS network offline')));
+      sandbox.App._onProactiveSpark({ text: 'fourth spark synth fail', emotion: 'happy', priority: 1 });
+      await new Promise(r => setTimeout(r, 0));
+      await new Promise(r => setTimeout(r, 0));
+      ok(sandbox.App.speaking === false,
+         'synthesis rejection unlocks App.speaking via Turn.on');
+      ok(sandbox.App._proactiveIntentId === null,
+         '_proactiveIntentId cleared on synthesis rejection');
+      ok(sandbox.Avatar.currentEmotion() === 'sad',
+         'idle mood expression (sad) restored upon synthesis rejection');
     }
   } catch (e) {
     bad('runtime: ' + (e && e.stack || e));
