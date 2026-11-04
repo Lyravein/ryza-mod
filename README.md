@@ -73,6 +73,9 @@ the provider immediately and create a replacement.
 
 ### Lyravein additions
 
+- **Mood & Dynamic Affection System**: Tracks companion affection (0..100) across 4 relationship tiers (Acquaintance, Companion, Close Friend, Soulmate) and 4 dynamic moods (Normal, Happy, Tired, Sulk). Adapts LLM system prompts, avatar idle expressions, and tiered touch tap reactions.
+- **Proactive Idle Spark (`proactive.js`)**: Ryza autonomously sparks casual remarks or alerts when idle, reacting to stamina depletion/faint, time of day (TOD), mood shifts, and relationship tiers. Features sticky user preemption, anti-spam cooldown, and configurable frequency settings (Low, Normal, High, or Off) with complete 7-locale translations.
+- **Polished Companion UI**: Dedicated frosted companion status badge on the character chat card with glowing pink affection counter and mood-reactive badges, alongside a streamlined RPG HUD level pill.
 - **Full i18n coverage**: every map field, stage name, settings panel, provider message, toast, and adventure log entry follows the selected UI language instead of leaking Japanese or Chinese defaults.
 - **Per-sentence TTS**: replies are synthesized and played one sentence at a time (opt-in), with opening-clip caching and failed-clip reporting.
 - **Translation leak guard**: when the model repeats its own reply in another language (e.g., Indonesian followed by Chinese), CJK-heavy segments are dropped for non-CJK targets. Translation beats are preserved as UI labels and never spoken aloud. Proper nouns (e.g., Japanese names inside an Indonesian sentence) survive intact.
