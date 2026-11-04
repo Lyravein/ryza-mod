@@ -221,9 +221,11 @@
       L.push('tod: 時を進めるなら mor|aft|eve|ngt か +N時間。');
     }
     if (hasRpg) {
-      L.push('荷物・金・経験・クエスト・記憶が動いたときだけ末尾に <state>：');
-      L.push('<state>{"stamina_delta":-2,"exp_delta":10,"money_delta":50,"inventory_added":[{"id":"emeralia","count":1}],"quest":{"step_add":1}}</state>');
-      L.push('key: stamina_delta exp_delta money_delta inventory_added|removed ryza_inventory_* memory_add quest{step_add,complete}');
+      L.push('荷物・金・経験・クエスト・記憶・好感度・機嫌が動いたときだけ末尾に <state>：');
+      L.push('<state>{"stamina_delta":-2,"exp_delta":10,"money_delta":50,"affection_delta":1,"mood":"happy","inventory_added":[{"id":"emeralia","count":1}],"quest":{"step_add":1}}</state>');
+      L.push('key: stamina_delta exp_delta money_delta affection_delta mood inventory_added|removed ryza_inventory_* memory_add quest{step_add,complete}');
+      L.push('affection_delta: 会話の親密さ・優しさに応じて -5〜+5（親切・励ましでプラス、失礼・冷淡でマイナス）。');
+      L.push('mood: 機嫌（happy=上機嫌 / normal=通常 / sulk=不満・拗ね / tired=疲労）。基本は維持し、会話の流れで感情が動いた時だけ更新。');
       L.push('素材を手に入れたら inventory_added に入れる（採取クエストは個数で自動に進む）。寝るときは <state> ではなく stage: sleep。');
     }
     return L.join('\n');

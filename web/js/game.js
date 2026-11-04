@@ -407,7 +407,7 @@
         applied.push('money' + (md >= 0 ? '+' : '') + md);
       }
       if (typeof d.affection_delta === 'number' && isFinite(d.affection_delta)) {
-        var ad = Util.clamp(Math.round(d.affection_delta), -50, 50);
+        var ad = Util.clamp(Math.round(d.affection_delta), -5, 5);
         if (ad !== 0) {
           var diff = Game.addAffection(ad);
           if (diff !== 0) applied.push('affection' + (diff > 0 ? '+' : '') + diff);
@@ -477,8 +477,14 @@
       L.push('- スタミナ ' + (Game.cheat() ? '∞' : (s.stamina + '/' + Game.max())) +
              '：活動や戦闘で減る。ゼロだとあたしは気絶しちゃう。眠れば全回復（1行目に stage: sleep）。');
       L.push('- 所持金 ' + (Game.cheat() ? '∞' : (s.money + 'G')) + '（この世界のお金）');
-      L.push('- 好感度 ' + Game.affection() + '/100');
-      L.push('- 機嫌 ' + Game.mood());
+      var aff = Game.affection();
+      var affTier = '知り合い';
+      if (aff >= 80) affTier = '無二の相棒・強い絆（とても親しく甘えや信頼を素直に出す）';
+      else if (aff >= 50) affTier = '親しい友達（冗談を言い合い気兼ねなく頼れる）';
+      else if (aff >= 20) affTier = '仲間（冒険や調合の良きパートナー）';
+      else affTier = '知り合い（まだ少し遠慮や初々しさがある）';
+      L.push('- 好感度 ' + aff + '/100（関係性：' + affTier + '）');
+      L.push('- 機嫌 ' + Game.mood() + '（今の気分をセリフのトーンに反映する）');
       L.push('- あなたのバッグ：' + invBrief(s.inventory));
       L.push('- あたしのバッグ：' + invBrief(s.ryza_inventory));
       L.push('- 出会った人々 ' + s.met_charas.length + ' 人');

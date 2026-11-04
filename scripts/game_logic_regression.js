@@ -154,6 +154,16 @@ localStorage.setItem('ryza.game.v1', '{corrupt json');
 Game.load();
 ok(Game.affection() === 0 && Game.mood() === 'normal', 'invalid JSON recovers cleanly to defaults');
 
+/* affection tier boundaries in promptBlock */
+Game.reset();
+ok(/関係性：知り合い/.test(Game.promptBlock()), 'affection 0 = 知り合い tier');
+Game.addAffection(20);
+ok(/関係性：仲間/.test(Game.promptBlock()), 'affection 20 = 仲間 tier');
+Game.addAffection(30);
+ok(/関係性：親しい友達/.test(Game.promptBlock()), 'affection 50 = 親しい友達 tier');
+Game.addAffection(30);
+ok(/関係性：無二の相棒/.test(Game.promptBlock()), 'affection 80 = 無二の相棒 tier');
+
 console.log('# bags');
 Game.reset();
 for (let i = 0; i < 30; i++) Game.addItem('you', 'item' + i, 1);
@@ -199,11 +209,13 @@ const affBeforeDelta = Game.affection();
 Game.applyDelta({ stamina_delta: -1e9, money_delta: 1e9, exp_delta: -1e9, affection_delta: 9999, mood: 'berserk' }, 'llm');
 ok(Game.s.money <= moneyBefore + 2000 && Game.s.stamina >= 0 && Game.s.exp_total >= 0,
    'deltas clamped, nothing breaks');
-ok(Game.affection() <= 55 && Game.mood() === 'happy', 'hostile affection clamped, invalid mood ignored');
+ok(Game.affection() === affBeforeDelta + 5 && Game.mood() === 'happy', 'hostile affection clamped to +5, invalid mood ignored');
+Game.applyDelta({ affection_delta: -9999 }, 'llm');
+ok(Game.affection() === affBeforeDelta, 'negative hostile affection clamped to -5');
 Game.applyDelta({ affection_delta: '10', mood: null }, 'llm');
-ok(Game.affection() === 55, 'string affection_delta refused in applyDelta');
+ok(Game.affection() === affBeforeDelta, 'string affection_delta refused in applyDelta');
 Game.applyDelta({ affection_delta: true }, 'llm');
-ok(Game.affection() === 55, 'boolean affection_delta refused in applyDelta');
+ok(Game.affection() === affBeforeDelta, 'boolean affection_delta refused in applyDelta');
 Game.applyDelta('nonsense'); Game.applyDelta(null);
 ok(true, 'garbage input survives');
 
@@ -427,6 +439,10 @@ const chatSys = Api.buildSystemPrompt('chat', 'voice', rpgBlk, 'ja', '', pb);
 ok(/<state>\{/.test(chatSys) && /stamina_delta/.test(chatSys) &&
    /inventory_added/.test(chatSys),
    'chat RPG prompt teaches trailing <state> for bags/exp/quest');
+ok(/affection_delta/.test(chatSys) && /mood/.test(chatSys),
+   'chat RPG prompt teaches affection_delta and mood in state');
+ok(/好感度/.test(chatSys) && /関係性：/.test(chatSys) && /機嫌/.test(chatSys),
+   'chat RPG prompt includes affection tier and mood context');
 const slept = Api.parseTaggedReply(
   '[emotion:cuddle|attitude:agree]\nおやすみ<state>{"sleep":true}</state>');
 ok(slept.state && slept.state.sleep === true, 'sleep flag parses');
