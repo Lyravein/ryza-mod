@@ -409,6 +409,133 @@ for (const f of ['util.js', 'config.js', 'i18n.js', 'api.js', 'providers.js', 't
     ok(/emotion:happy/.test(sandbox.Api.screenTagLine()),
        'screen-state port: unknown values fall back to the fillable default');
 
+    /* ---- mood and tap expression reactions ---- */
+    let lastEmotion = '', lastAttitude = '';
+    Avatar.setEmotion = (em, att) => { lastEmotion = em; lastAttitude = att; };
+
+    sandbox.Game.setMood('sulk');
+    sandbox.App._syncMoodExpression();
+    ok(lastEmotion === 'angry' && lastAttitude === 'agree', 'mood sulk syncs idle emotion to angry');
+
+    sandbox.Game.setMood('tired');
+    sandbox.App._syncMoodExpression();
+    ok(lastEmotion === 'sad' && lastAttitude === 'agree', 'mood tired syncs idle emotion to sad');
+
+    sandbox.Game.setMood('happy');
+    sandbox.App._syncMoodExpression();
+    ok(lastEmotion === 'happy' && lastAttitude === 'agree', 'mood happy syncs idle emotion to happy');
+
+    sandbox.Game.setMood('normal');
+    sandbox.App._syncMoodExpression();
+    ok(lastEmotion === 'neutral' && lastAttitude === 'agree', 'mood normal syncs idle emotion to neutral');
+
+    /* tap reactions */
+    sandbox.Game.reset();
+    sandbox.App._onTapReaction('breast');
+    ok(lastEmotion === 'angry' && lastAttitude === 'deny', 'tap breast with 0 affection triggers angry/deny');
+
+    sandbox.Game.addAffection(30);
+    sandbox.App._onTapReaction('breast');
+    ok(lastEmotion === 'shy' && lastAttitude === 'deny', 'tap breast with 30 affection triggers shy/deny');
+
+    sandbox.Game.addAffection(40);
+    sandbox.App._onTapReaction('breast');
+    ok(lastEmotion === 'tease' && lastAttitude === 'agree', 'tap breast with 70 affection triggers tease/agree');
+
+    /* weast intimate boundary */
+    sandbox.Game.reset();
+    sandbox.App._onTapReaction('weast');
+    ok(lastEmotion === 'angry' && lastAttitude === 'deny', 'tap weast with 0 affection triggers angry/deny');
+    sandbox.Game.addAffection(30);
+    sandbox.App._onTapReaction('weast');
+    ok(lastEmotion === 'shy' && lastAttitude === 'deny', 'tap weast with 30 affection triggers shy/deny');
+
+    sandbox.Game.addAffection(40); // 70
+    sandbox.App._onTapReaction('head');
+    ok(lastEmotion === 'cuddle' && lastAttitude === 'agree', 'tap head with 70 affection triggers cuddle/agree');
+
+    sandbox.Game.setMood('sulk');
+    sandbox.App._onTapReaction('head');
+    ok(lastEmotion === 'angry' && lastAttitude === 'deny', 'tap head while sulking triggers angry/deny');
+
+    sandbox.Game.reset();
+    sandbox.Game.setMood('tired');
+    sandbox.App._onTapReaction('breast');
+    ok(lastEmotion === 'angry' && lastAttitude === 'deny',
+       'tap breast with 0 affection and tired mood still triggers angry/deny');
+    sandbox.App._onTapReaction('weast');
+    ok(lastEmotion === 'angry' && lastAttitude === 'deny',
+       'tap weast with 0 affection and tired mood still triggers angry/deny');
+    sandbox.App._onTapReaction('body');
+    ok(lastEmotion === 'sad' && lastAttitude === 'deny',
+       'tap body when tired triggers curt sad/deny');
+
+    /* exact intimate threshold boundaries: < 20 and < 50 (both breast and weast) */
+    ['breast', 'weast'].forEach(p => {
+      sandbox.Game.reset();
+      sandbox.Game.addAffection(19);
+      sandbox.App._onTapReaction(p);
+      ok(lastEmotion === 'angry' && lastAttitude === 'deny', p + ' affection 19 triggers angry/deny');
+      sandbox.Game.addAffection(1); // 20
+      sandbox.App._onTapReaction(p);
+      ok(lastEmotion === 'shy' && lastAttitude === 'deny', p + ' affection 20 triggers shy/deny');
+      sandbox.Game.addAffection(29); // 49
+      sandbox.App._onTapReaction(p);
+      ok(lastEmotion === 'shy' && lastAttitude === 'deny', p + ' affection 49 triggers shy/deny');
+      sandbox.Game.addAffection(1); // 50
+      sandbox.App._onTapReaction(p);
+      ok(lastEmotion === 'tease' && lastAttitude === 'agree', p + ' affection 50 triggers tease/agree');
+    });
+
+    /* speech boundary sync */
+    sandbox.Game.setMood('normal');
+    sandbox.App._syncMoodExpression();
+    sandbox.App.speaking = true;
+    sandbox.Game.setMood('sulk');
+    sandbox.App._syncMoodExpression();
+    ok(lastEmotion === 'neutral', 'speaking flag prevents premature idle mood sync');
+    sandbox.App._onTapReaction('body');
+    ok(lastEmotion === 'neutral', 'tap reaction does not clobber emotion during active speech');
+    sandbox.App._finishSpeaking();
+    ok(lastEmotion === 'angry', 'speech-settle path unconditionally resyncs idle mood');
+
+    /* speech settlement integration (real promise-resolution & rejection paths) */
+    const origChat = sandbox.Api.chat;
+    sandbox.Config.set('llm.apiKey', 'test-key');
+    sandbox.Game.refill();
+
+    // 1. Success resolution path
+    sandbox.Game.setMood('tired');
+    sandbox.Api.chat = () => Promise.resolve({ text: 'はい！', emotion: '', attitude: '' });
+    sandbox.App.say('hello');
+    ok(sandbox.App.speaking === true, 'say sets App.speaking true');
+    await new Promise(r => setTimeout(r, 0));
+    ok(sandbox.App.speaking === false, 'success resolution clears speaking via _finishSpeaking');
+    ok(lastEmotion === 'sad', 'success resolution resyncs idle mood (tired -> sad)');
+
+    // 2. Error rejection path
+    sandbox.Game.setMood('sulk');
+    sandbox.Api.chat = () => Promise.reject(new Error('simulated net error'));
+    sandbox.App.say('hello again');
+    ok(sandbox.App.speaking === true, 'say sets App.speaking true on second turn');
+    await new Promise(r => setTimeout(r, 0));
+    ok(sandbox.App.speaking === false, 'error rejection clears speaking via _finishSpeaking');
+    ok(lastEmotion === 'angry', 'error rejection resyncs idle mood (sulk -> angry)');
+    sandbox.Api.chat = origChat;
+
+    /* hitEl click handler integration (unconditional requirement) */
+    Avatar.hitPartAt = () => 'breast';
+    sandbox.Game.reset();
+    const hitEl = sandbox.document.getElementById('avatar-hit');
+    ok(Boolean(hitEl && typeof hitEl.onclick === 'function'),
+       'avatar-hit element and click handler are present');
+    hitEl.onclick({ clientX: 50, clientY: 50, target: hitEl });
+    ok(lastEmotion === 'angry' && lastAttitude === 'deny',
+       'hitEl click triggers tap reaction and sets emotion');
+    Avatar.hitPartAt = () => null;
+
+    sandbox.Game.reset();
+
     /* ---- playback must always settle -------------------------------------
        Turn stays in SPEAKING until its player promise resolves, and Voice
        gates the microphone on Turn.isSpeaking(): a promise that never settles

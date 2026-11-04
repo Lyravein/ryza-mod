@@ -162,7 +162,13 @@
       App._bindChrome();
       App._bindTalk();
       App._bindOverlays();
-      Game.on(function () { App.refreshHud(); App._syncOpenViews(); });
+      Game.on(function (what) {
+        App.refreshHud();
+        App._syncOpenViews();
+        if (what === 'mood' || what === 'reset') {
+          App._syncMoodExpression(false);
+        }
+      });
 
       /* Ports first: they must not depend on the asset chain below succeeding. */
       App._wirePorts();
@@ -176,6 +182,7 @@
         Avatar.init(function () {
           App._loadSceneFor(st.stage, st.tod);
           App._tickTime();          // adopt the wall/flow clock once the scene is up
+          App._syncMoodExpression(true);
         });
         setInterval(App._tickTime, 30000);
         document.addEventListener('visibilitychange', function () {
@@ -590,6 +597,72 @@
       el.style.top = y + 'px';
       layer.appendChild(el);
       setTimeout(function () { if (el.remove) el.remove(); }, 720);
+    },
+
+    _syncMoodExpression: function (immediate) {
+      if (!window.Avatar || !window.Game || !Avatar.setEmotion) return;
+      var mood = (Game.mood && Game.mood()) || 'normal';
+      var moodMap = {
+        happy: 'happy',
+        normal: 'neutral',
+        sulk: 'angry',
+        tired: 'sad'
+      };
+      var target = moodMap[mood] || 'neutral';
+      if (!App.speaking) {
+        Avatar.setEmotion(target, 'agree', !!immediate);
+      }
+    },
+
+    _finishSpeaking: function () {
+      App.speaking = false;
+      App._syncMoodExpression(false);
+    },
+
+    _onTapReaction: function (part) {
+      if (!window.Avatar || !window.Game || !Avatar.setEmotion) return;
+      if (App.speaking) return;
+      var mood = (Game.mood && Game.mood()) || 'normal';
+      var aff = (Game.affection && Game.affection()) || 0;
+      var emotion = 'happy';
+      var attitude = 'agree';
+
+      /* Intimate parts: low-affection boundary is authoritative over mood */
+      if (part === 'breast' || part === 'weast') {
+        if (aff < 20) {
+          emotion = 'angry';
+          attitude = 'deny';
+        } else if (aff < 50) {
+          emotion = 'shy';
+          attitude = 'deny';
+        } else {
+          emotion = (mood === 'sulk') ? 'shy' : 'tease';
+          attitude = (mood === 'sulk') ? 'deny' : 'agree';
+        }
+      } else if (mood === 'sulk') {
+        emotion = 'angry';
+        attitude = 'deny';
+      } else if (mood === 'tired') {
+        emotion = 'sad';
+        attitude = 'deny';
+      } else if (part === 'head') {
+        if (aff >= 50) {
+          emotion = 'cuddle';
+          attitude = 'agree';
+        } else {
+          emotion = 'happy';
+          attitude = 'agree';
+        }
+      } else {
+        if (mood === 'happy') {
+          emotion = 'laughing';
+          attitude = 'agree';
+        } else {
+          emotion = 'happy';
+          attitude = 'agree';
+        }
+      }
+      Avatar.setEmotion(emotion, attitude);
     },
 
     /* ------------------------------------------------------------ chrome */
@@ -1505,6 +1578,7 @@
         if (!part) return;   /* miss = no ripple, no SE, no reaction */
         App._ripple(x, y);
         var overlay = Avatar.poke(part);
+        App._onTapReaction(part);
         Welcome.mark('touch');   /* official activity: app_launched x1 */
         App.buzz();
         if (window.Sound) {
@@ -1946,7 +2020,7 @@
           /* A reply that is no longer the current turn must not land at all —
              not the history, not the game state, not the face. */
           if (!App._turnCurrent(turnEpoch)) return;
-          App.speaking = false;
+          App._finishSpeaking();
           if (window.Turn && Turn.finishTurn) Turn.finishTurn();
           document.getElementById('btn-send').disabled = false;
           App.history.push({ role: 'user', content: text });
@@ -1963,9 +2037,12 @@
 
           if (window.Nsfw) Nsfw.onTurn(reply);
           /* Omit = keep (same as undress). A missed tag must not snap the face
-             back to neutral/agree. */
+             back to neutral/agree. If mood changed in state and emotion was omitted,
+             resync to the newly updated mood. */
           if (reply.emotion || reply.attitude) {
             Avatar.setEmotion(reply.emotion, reply.attitude);
+          } else if (reply.state && reply.state.mood) {
+            App._syncMoodExpression(false);
           }
           /* After side effects so the echoed line matches the new screen.
              All fields (emotion / undress / stage) live on this one line —
@@ -1998,7 +2075,7 @@
              accepted a third overlapping send. */
           if (e && e.stale) return;
           if (!App._turnCurrent(turnEpoch)) return;
-          App.speaking = false;
+          App._finishSpeaking();
           if (window.Turn && Turn.finishTurn) Turn.finishTurn();
           document.getElementById('btn-send').disabled = false;
           var bar = document.getElementById('retry-bar');
