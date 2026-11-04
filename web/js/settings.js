@@ -455,6 +455,21 @@
         { v: 'lively', t: T('settings.npcFreq.lively') }
       ], function (v) { Config.set('app.npcFrequency', v); });
 
+      /* Autonomous proactive remarks (web/js/proactive.js) */
+      App._switch(w, T('settings.proactive'), Config.section('app').proactiveEnabled !== false,
+        function (v) {
+          Config.set('app.proactiveEnabled', !!v);
+          if (window.Proactive && Proactive.setEnabled) Proactive.setEnabled(!!v);
+        });
+      App._select(w, T('settings.proactiveFreq'), Config.section('app').proactiveFreq || 'normal', [
+        { v: 'low', t: T('settings.proactiveFreq.low') },
+        { v: 'normal', t: T('settings.proactiveFreq.normal') },
+        { v: 'high', t: T('settings.proactiveFreq.high') }
+      ], function (v) {
+        Config.set('app.proactiveFreq', v);
+        if (window.Proactive && Proactive.applyConfig) Proactive.applyConfig();
+      });
+
       /* ---------------- time passage (official drove it from AppServerClock) */
       App._title(w, T('settings.time'));
       App._select(w, T('settings.timeMode'), Config.section('app').timeMode || 'real', [
@@ -751,6 +766,7 @@
       Settings.buildSettings();
       Settings.buildCharaForm();
       App.renderSkins();
+      if (window.Proactive && Proactive.applyConfig) Proactive.applyConfig();
       I18n.setLang(Config.section('app').lang);
       App.applyI18n(document);
       return true;

@@ -951,6 +951,75 @@ for (const f of ['util.js', 'config.js', 'i18n.js', 'api.js', 'providers.js', 't
          '_proactiveIntentId cleared on synthesis rejection');
       ok(sandbox.Avatar.currentEmotion() === 'sad',
          'idle mood expression (sad) restored upon synthesis rejection');
+
+      // 8. Settings integration, Frequency presets & Prototype safety
+      sandbox.Config.set('app.proactiveFreq', 'high');
+      Proactive.applyConfig();
+      ok(Proactive.state().idleWindowMs === 30000 && Proactive.state().cooldownMs === 45000,
+         'proactiveFreq high applies 30s/45s timing');
+      sandbox.Config.set('app.proactiveFreq', 'low');
+      Proactive.applyConfig();
+      ok(Proactive.state().idleWindowMs === 120000 && Proactive.state().cooldownMs === 180000,
+         'proactiveFreq low applies 120s/180s timing');
+      // Inherited / prototype property safety: 'constructor' must safely default to normal
+      sandbox.Config.set('app.proactiveFreq', 'constructor');
+      Proactive.applyConfig();
+      ok(Proactive.state().idleWindowMs === 60000 && Proactive.state().cooldownMs === 90000,
+         'proactiveFreq constructor safely falls back to normal timing');
+
+      sandbox.Config.set('app.proactiveEnabled', false);
+      Proactive.applyConfig();
+      ok(Proactive.enabled() === false, 'proactiveEnabled false disables engine');
+      sandbox.Config.set('app.proactiveEnabled', true);
+      sandbox.Config.set('app.proactiveFreq', 'normal');
+      Proactive.applyConfig();
+
+      // 9. Snapshot Restoration Synchronization
+      const snapWithDisabledProactive = {
+        settings: { app: { proactiveEnabled: false, proactiveFreq: 'low' } },
+        game: sandbox.Game.snapshot(),
+        history: [],
+        memory: []
+      };
+      sandbox.Settings._applySnapshot(snapWithDisabledProactive);
+      ok(Proactive.enabled() === false,
+         '_applySnapshot synchronizes proactiveEnabled=false to Proactive engine');
+      ok(Proactive.state().idleWindowMs === 120000 && Proactive.state().cooldownMs === 180000,
+         '_applySnapshot synchronizes proactiveFreq=low to Proactive engine');
+
+      // Restore enabled config
+      sandbox.Config.set('app.proactiveEnabled', true);
+      sandbox.Config.set('app.proactiveFreq', 'normal');
+      Proactive.applyConfig();
+
+      // 10. All 14 spark keys localized across all 7 languages (no raw keys, no cross-language leak)
+      const sparkKeys = [
+        'spark.stamina.faint', 'spark.stamina.low',
+        'spark.tod.mor', 'spark.tod.aft', 'spark.tod.eve', 'spark.tod.ngt',
+        'spark.mood.sulk', 'spark.mood.tired', 'spark.mood.happy',
+        'spark.daily',
+        'spark.idle.acquaintance', 'spark.idle.companion', 'spark.idle.close', 'spark.idle.soulmate'
+      ];
+      // Collect Japanese reference strings to guard against silent fallback leaks
+      sandbox.I18n.setLang('ja');
+      const jaTexts = {};
+      sparkKeys.forEach(function (k) {
+        jaTexts[k] = Proactive.resolveText({ key: k }, sandbox.I18n);
+      });
+
+      ['zh', 'zh-tw', 'ja', 'en', 'hi', 'id', 'pt-br'].forEach(function (lg) {
+        sandbox.I18n.setLang(lg);
+        sparkKeys.forEach(function (k) {
+          const res = Proactive.resolveText({ key: k }, sandbox.I18n);
+          ok(typeof res === 'string' && res.length > 0 && res !== k,
+             lg + ': ' + k + ' resolves non-empty localized text');
+          if (lg !== 'ja') {
+            ok(res !== jaTexts[k],
+               lg + ': ' + k + ' is natively translated (does not leak Japanese fallback string)');
+          }
+        });
+      });
+      sandbox.I18n.setLang('en');
     }
   } catch (e) {
     bad('runtime: ' + (e && e.stack || e));

@@ -241,8 +241,26 @@
     }
   }
 
+  var FREQ_PRESETS = {
+    low: { idleWindowMs: 120000, cooldownMs: 180000 },
+    normal: { idleWindowMs: 60000, cooldownMs: 90000 },
+    high: { idleWindowMs: 30000, cooldownMs: 45000 }
+  };
+
+  function applyConfig() {
+    if (!global.Config || typeof global.Config.section !== 'function') return;
+    var appCfg = global.Config.section('app') || {};
+    _enabled = appCfg.proactiveEnabled !== false;
+    var freqKey = String(appCfg.proactiveFreq || '');
+    var preset = Object.prototype.hasOwnProperty.call(FREQ_PRESETS, freqKey)
+      ? FREQ_PRESETS[freqKey] : FREQ_PRESETS.normal;
+    _idleWindowMs = preset.idleWindowMs;
+    _cooldownMs = preset.cooldownMs;
+  }
+
   function start(presenter, opts) {
     opts = opts || {};
+    applyConfig();
     if (typeof presenter === 'function') _presenter = presenter;
     if (opts.idleWindowMs != null) _idleWindowMs = Number(opts.idleWindowMs);
     if (opts.cooldownMs != null) _cooldownMs = Number(opts.cooldownMs);
@@ -283,6 +301,7 @@
     start: start,
     stop: stop,
     reset: reset,
+    applyConfig: applyConfig,
     enabled: function () { return _enabled; },
     setEnabled: function (v) { _enabled = !!v; },
     setPresenter: function (fn) { _presenter = (typeof fn === 'function') ? fn : null; },

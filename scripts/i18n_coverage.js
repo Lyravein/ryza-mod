@@ -113,7 +113,15 @@ console.log('\n# 2b. 动态硬查找的整个域都要有词');
     'dl.week.': ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
     'onb.gender.': ['female', 'male', 'other'],
     'tod.': ['mor', 'aft', 'eve', 'ngt'],
-    'bubble.fail.': ['nokey', 'auth', 'model', 'timeout', 'net', 'other']
+    'bubble.fail.': ['nokey', 'auth', 'model', 'timeout', 'net', 'other'],
+    'settings.proactiveFreq.': ['low', 'normal', 'high'],
+    'spark.': [
+      'stamina.faint', 'stamina.low',
+      'tod.mor', 'tod.aft', 'tod.eve', 'tod.ngt',
+      'mood.sulk', 'mood.tired', 'mood.happy',
+      'daily',
+      'idle.acquaintance', 'idle.companion', 'idle.close', 'idle.soulmate'
+    ]
   };
   const dynKeys = [];
   for (const [prefix, vals] of Object.entries(domains)) vals.forEach((v) => dynKeys.push(prefix + v));

@@ -152,6 +152,8 @@
       autoSend: false,               // send an accepted transcript without a tap
       autoSendDelay: 2000,           // ms before auto-send once the mic goes quiet
       npcFrequency: 'normal',          // restrained | normal | frequent | lively (see npc.js)
+      proactiveEnabled: true,          // autonomous companion remarks while idle
+      proactiveFreq: 'normal',         // low (120s/180s) | normal (60s/90s) | high (30s/45s)
       bargeIn: false,                // 你开口就打断她（需回声消除；见 voice.js 末尾说明）
       quickCollapsed: false,         // 收起右侧快捷钮（只留一个展开键，见 index.html #quick-btns）
       timeMode: 'real',              // real=墙钟(LLM不可拨) | flow=游戏钟(LLM可拨) | manual=🌤
