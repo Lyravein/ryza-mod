@@ -107,10 +107,7 @@
       "note": "麦克风采集 + 能量门 + WAV 打包，转写走注入的传输端口（api.js 的 /audio/transcriptions）。浏览器自带识别器不可用时的兜底引擎（Electron/APK 实测不可用）。"
     },
     "npc": "features",
-    "proactive": {
-      "layer": "features",
-      "planned": true
-    },
+    "proactive": "features",
     "vision": {
       "layer": "features",
       "planned": true
@@ -183,6 +180,9 @@
     ],
     "alarm": [
       "Alarm"
+    ],
+    "proactive": [
+      "Proactive"
     ],
     "api": [
       "Api"
