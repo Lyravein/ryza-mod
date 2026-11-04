@@ -1198,7 +1198,12 @@
       var todBtn = document.getElementById('btn-tod-label');
       if (todBtn) todBtn.textContent = World.todLabel(st.tod);
       var dd = document.getElementById('drawer-day');
-      if (dd) dd.textContent = I18n.tf('drawer.days', '同伴 {n} 天', { n: (st.day || 1) });
+      if (dd) {
+        var aff = Game.affection();
+        var tKey = Game.affectionTierKey ? Game.affectionTierKey(aff) : 'acquaintance';
+        var tLabel = I18n.t('aff.tier.' + tKey) || tKey;
+        dd.textContent = I18n.tf('drawer.days', '同伴 {n} 天', { n: (st.day || 1) }) + ' · ' + tLabel;
+      }
       /* log panel identity line — official shows her name + the current
          mode's description under the avatar (e.g. ASMR: 耳元で震える声で) */
       var ln = document.getElementById('log-name');
@@ -1252,7 +1257,12 @@
       if (m) m.textContent = Game.cheat() ? '∞'
         : String(Game.s.money).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
       var lv = document.getElementById('hud-level');
-      if (lv) lv.textContent = 'Lv' + Game.level();
+      if (lv) {
+        var aff = Game.affection();
+        var mood = Game.mood();
+        var mLabel = I18n.t('mood.' + mood) || mood;
+        lv.textContent = 'Lv' + Game.level() + ' · ❤' + aff + ' ' + mLabel;
+      }
       App._dailyBadge();
     },
 
@@ -1730,6 +1740,12 @@
         rv.appendChild(rh);
       }
       row(I18n.t('st.exp'), e.into + ' / ' + e.span + '（' + Game.s.exp_total + '）');
+      var affVal = Game.affection();
+      var tKey = Game.affectionTierKey ? Game.affectionTierKey(affVal) : 'acquaintance';
+      var tLabel = I18n.t('aff.tier.' + tKey) || tKey;
+      var moodLabel = I18n.t('mood.' + Game.mood()) || Game.mood();
+      row(I18n.t('hud.affection'), affVal + ' / 100 (' + tLabel + ')');
+      row(I18n.t('hud.mood'), moodLabel);
       row('G', Game.cheat() ? '∞' : String(Game.s.money));
       var q = Quests.active();
       /* The status panel is UI, so the title goes through the same lookup the

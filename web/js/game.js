@@ -253,6 +253,13 @@
     /* -------------------------------------------------- affection & mood */
     affection: function () { return Game.s ? (Game.s.affection || 0) : 0; },
     mood: function () { return Game.s ? (Game.s.mood || 'normal') : 'normal'; },
+    affectionTierKey: function (val) {
+      var a = val != null ? val : Game.affection();
+      if (a >= 80) return 'soulmate';
+      if (a >= 50) return 'close';
+      if (a >= 20) return 'companion';
+      return 'acquaintance';
+    },
     addAffection: function (n) {
       if (typeof n !== 'number' || !isFinite(n)) return 0;
       var before = Game.affection();

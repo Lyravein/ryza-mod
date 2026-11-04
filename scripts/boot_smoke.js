@@ -228,6 +228,42 @@ for (const f of ['util.js', 'config.js', 'i18n.js', 'api.js', 'providers.js', 't
     ok(document.getElementById('hud-stamina').innerHTML.indexOf('apple') >= 0 ||
        document.getElementById('hud-stamina').innerHTML === '',
        'HUD stamina chip rendered after boot');
+    const lvEl = document.getElementById('hud-level');
+    ok(!!lvEl && lvEl.textContent.indexOf('❤0') >= 0 && lvEl.textContent.indexOf('Calm') >= 0,
+       'HUD level pill renders affection heart and localized mood text');
+    const ddEl = document.getElementById('drawer-day');
+    ok(!!ddEl && ddEl.textContent.indexOf('Acquaintance') >= 0,
+       'drawer-day renders companion day and localized relationship tier');
+    sandbox.App.renderStatus();
+    const stBody = document.getElementById('status-body');
+    const stRows = stBody.children.map(function (c) {
+      return (c.children || []).map(function (k) { return k.textContent || k.innerHTML; }).join(' ');
+    });
+    ok(stRows.some(t => t.indexOf('Affection') >= 0 && t.indexOf('Acquaintance') >= 0),
+       'status sheet includes localized affection row');
+    ok(stRows.some(t => t.indexOf('Mood') >= 0 && t.indexOf('Calm') >= 0),
+       'status sheet includes localized mood row');
+
+    /* 7-locale switch check: verify UI surfaces update to localized text without leaking raw keys */
+    ['zh', 'zh-tw', 'ja', 'en', 'hi', 'id', 'pt-br'].forEach(function (lg) {
+      sandbox.Config.section('app').lang = lg;
+      sandbox.I18n.setLang(lg);
+      sandbox.App.applyI18n(document);
+      sandbox.App._relocalize();
+      const curLv = document.getElementById('hud-level').textContent;
+      const curDd = document.getElementById('drawer-day').textContent;
+      const moodExpected = sandbox.I18n.t('mood.normal');
+      const tierExpected = sandbox.I18n.t('aff.tier.acquaintance');
+      ok(curLv.indexOf(moodExpected) >= 0 && curLv.indexOf('mood.') === -1,
+         lg + ': HUD renders localized mood (' + moodExpected + ')');
+      ok(curDd.indexOf(tierExpected) >= 0 && curDd.indexOf('aff.tier.') === -1,
+         lg + ': drawer renders localized tier (' + tierExpected + ')');
+    });
+    // restore default locale (en)
+    sandbox.Config.section('app').lang = 'en';
+    sandbox.I18n.setLang('en');
+    sandbox.App.applyI18n(document);
+    sandbox.App._relocalize();
     ok(sandbox.Daily.available(), 'daily claim available on fresh boot');
 
     /* the right-hand quick column: bound at boot, state applied from Config */

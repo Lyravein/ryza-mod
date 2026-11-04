@@ -156,12 +156,16 @@ ok(Game.affection() === 0 && Game.mood() === 'normal', 'invalid JSON recovers cl
 
 /* affection tier boundaries in promptBlock */
 Game.reset();
+ok(Game.affectionTierKey(0) === 'acquaintance', 'tier key 0 = acquaintance');
 ok(/関係性：知り合い/.test(Game.promptBlock()), 'affection 0 = 知り合い tier');
 Game.addAffection(20);
+ok(Game.affectionTierKey(20) === 'companion', 'tier key 20 = companion');
 ok(/関係性：仲間/.test(Game.promptBlock()), 'affection 20 = 仲間 tier');
 Game.addAffection(30);
+ok(Game.affectionTierKey(50) === 'close', 'tier key 50 = close');
 ok(/関係性：親しい友達/.test(Game.promptBlock()), 'affection 50 = 親しい友達 tier');
 Game.addAffection(30);
+ok(Game.affectionTierKey(80) === 'soulmate', 'tier key 80 = soulmate');
 ok(/関係性：無二の相棒/.test(Game.promptBlock()), 'affection 80 = 無二の相棒 tier');
 
 console.log('# bags');
