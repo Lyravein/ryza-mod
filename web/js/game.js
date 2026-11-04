@@ -55,10 +55,14 @@
   /* Upgrades cost gold — replaces the official IAP/TD path (not rebuilt). */
   var BAG_UPGRADE_COST = { normal: 150, large: 600, huge: 1500 };
 
+  var MOODS = ['happy', 'normal', 'sulk', 'tired'];
+
   var DEFAULTS = {
     exp_total: 0,
     stamina: -1,                          /* -1 = "full" until first spend */
     money: 30,
+    affection: 0,                         /* 0..100 */
+    mood: 'normal',                       /* 'happy' | 'normal' | 'sulk' | 'tired' */
     bagYou: 'normal',
     bagRyza: 'normal',
     inventory: [
@@ -125,6 +129,7 @@
     BAG_ORDER: BAG_ORDER,
     BAG_UPGRADE_COST: BAG_UPGRADE_COST,
     APPLE_SLOTS: APPLE_SLOTS,
+    MOODS: MOODS,
 
     load: function () {
       var raw = null;
@@ -142,6 +147,9 @@
       Game.s.sailed = !!Game.s.sailed;
       if (!BAGS[Game.s.bagYou]) Game.s.bagYou = 'normal';
       if (!BAGS[Game.s.bagRyza]) Game.s.bagRyza = 'normal';
+      if (typeof Game.s.affection !== 'number' || !isFinite(Game.s.affection)) Game.s.affection = 0;
+      Game.s.affection = Util.clamp(Math.round(Game.s.affection), 0, 100);
+      if (typeof Game.s.mood !== 'string' || MOODS.indexOf(Game.s.mood) === -1) Game.s.mood = 'normal';
       if (Game.s.stamina < 0 || Game.s.stamina > Game.max()) Game.s.stamina = Game.max();
       return Game.s;
     },
@@ -240,6 +248,29 @@
       Game.save();
       Game.emit('exp');
       return after > before;
+    },
+
+    /* -------------------------------------------------- affection & mood */
+    affection: function () { return Game.s ? (Game.s.affection || 0) : 0; },
+    mood: function () { return Game.s ? (Game.s.mood || 'normal') : 'normal'; },
+    addAffection: function (n) {
+      if (typeof n !== 'number' || !isFinite(n)) return 0;
+      var before = Game.affection();
+      Game.s.affection = Util.clamp(Math.round(before + n), 0, 100);
+      var diff = Game.s.affection - before;
+      if (diff !== 0) {
+        Game.save();
+        Game.emit('affection');
+      }
+      return diff;
+    },
+    setMood: function (m) {
+      if (typeof m !== 'string' || MOODS.indexOf(m) === -1) return false;
+      if (Game.s.mood === m) return false;
+      Game.s.mood = m;
+      Game.save();
+      Game.emit('mood');
+      return true;
     },
 
     /* ------------------------------------------------------------ bags */
@@ -375,6 +406,18 @@
         Game.addMoney(md);
         applied.push('money' + (md >= 0 ? '+' : '') + md);
       }
+      if (typeof d.affection_delta === 'number' && isFinite(d.affection_delta)) {
+        var ad = Util.clamp(Math.round(d.affection_delta), -50, 50);
+        if (ad !== 0) {
+          var diff = Game.addAffection(ad);
+          if (diff !== 0) applied.push('affection' + (diff > 0 ? '+' : '') + diff);
+        }
+      }
+      if (d.mood != null && typeof d.mood === 'string') {
+        if (Game.setMood(d.mood)) {
+          applied.push('mood:' + Game.mood());
+        }
+      }
       var gathered = 0;
       [['inventory_added', 'you'], ['ryza_inventory_added', 'ryza']].forEach(function (pair) {
         ((Array.isArray(d[pair[0]]) && d[pair[0]]) || []).forEach(function (it) {
@@ -434,6 +477,8 @@
       L.push('- スタミナ ' + (Game.cheat() ? '∞' : (s.stamina + '/' + Game.max())) +
              '：活動や戦闘で減る。ゼロだとあたしは気絶しちゃう。眠れば全回復（1行目に stage: sleep）。');
       L.push('- 所持金 ' + (Game.cheat() ? '∞' : (s.money + 'G')) + '（この世界のお金）');
+      L.push('- 好感度 ' + Game.affection() + '/100');
+      L.push('- 機嫌 ' + Game.mood());
       L.push('- あなたのバッグ：' + invBrief(s.inventory));
       L.push('- あたしのバッグ：' + invBrief(s.ryza_inventory));
       L.push('- 出会った人々 ' + s.met_charas.length + ' 人');

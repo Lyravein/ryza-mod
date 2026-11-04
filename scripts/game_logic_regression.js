@@ -110,6 +110,50 @@ const lv0 = Game.level(), max0 = Game.max();
 Game.addExp(500);
 ok(Game.level() > lv0 && Game.max() > max0, 'exp raises level and stamina cap');
 
+console.log('# affection & mood');
+Game.reset();
+ok(Game.affection() === 0, 'start with 0 affection');
+ok(Game.mood() === 'normal', 'start with normal mood');
+let affEvents = 0, moodEvents = 0;
+Game.on(w => {
+  if (w === 'affection') affEvents++;
+  if (w === 'mood') moodEvents++;
+});
+Game.addAffection(15);
+ok(Game.affection() === 15 && affEvents === 1, 'addAffection increases and emits');
+Game.addAffection(200);
+ok(Game.affection() === 100, 'affection clamped at 100 max');
+Game.addAffection(-150);
+ok(Game.affection() === 0, 'affection clamped at 0 min');
+Game.addAffection('invalid');
+ok(Game.affection() === 0, 'invalid affection delta ignored safely');
+ok(Game.addAffection(true) === 0 && Game.affection() === 0, 'boolean true refused');
+ok(Game.addAffection(false) === 0 && Game.affection() === 0, 'boolean false refused');
+ok(Game.addAffection(null) === 0 && Game.affection() === 0, 'null refused');
+ok(Game.addAffection('10') === 0 && Game.affection() === 0, 'numeric string refused');
+
+ok(Game.setMood('happy'), 'setMood accepts valid mood');
+ok(Game.mood() === 'happy' && moodEvents === 1, 'mood changed and emitted');
+ok(!Game.setMood('happy'), 'setting same mood returns false and does not emit');
+ok(moodEvents === 1, 'duplicate mood did not emit');
+ok(!Game.setMood('berserk'), 'invalid mood rejected');
+ok(Game.mood() === 'happy', 'mood stays unchanged on invalid set');
+ok(Game.setMood('sulk') && Game.setMood('tired') && Game.setMood('normal'), 'all valid moods supported');
+
+/* legacy and malformed storage records */
+localStorage.setItem('ryza.game.v1', JSON.stringify({ exp_total: 100, money: 50 }));
+Game.load();
+ok(Game.affection() === 0 && Game.mood() === 'normal', 'legacy save defaults missing affection/mood');
+localStorage.setItem('ryza.game.v1', JSON.stringify({ affection: 'corrupt', mood: 'unknown' }));
+Game.load();
+ok(Game.affection() === 0 && Game.mood() === 'normal', 'malformed persisted fields sanitized');
+localStorage.setItem('ryza.game.v1', JSON.stringify({ affection: 9999, mood: 'happy' }));
+Game.load();
+ok(Game.affection() === 100 && Game.mood() === 'happy', 'out of bound affection clamped at load');
+localStorage.setItem('ryza.game.v1', '{corrupt json');
+Game.load();
+ok(Game.affection() === 0 && Game.mood() === 'normal', 'invalid JSON recovers cleanly to defaults');
+
 console.log('# bags');
 Game.reset();
 for (let i = 0; i < 30; i++) Game.addItem('you', 'item' + i, 1);
@@ -132,25 +176,34 @@ Quests.ensure();
 const parsed = Api.parseTaggedReply(
   '[emotion:happy|attitude:agree]\nわかった、採ってくるね！' +
   '<state>{"stamina_delta":-2,"exp_delta":25,"money_delta":40,' +
+  '"affection_delta":5,"mood":"happy",' +
   '"inventory_added":[{"id":"honey","count":1}],' +
   '"quest":{"step_add":1}}</state>');
 ok(parsed.emotion === 'happy' && parsed.text.indexOf('<state>') === -1,
    'tag + state block stripped from display text');
 ok(parsed.state && parsed.state.quest.step_add === 1, 'state block parsed');
 const q = Quests.active();
-const before = { exp: Game.s.exp_total, money: Game.s.money, stamina: Game.s.stamina, step: q.step };
+const before = { exp: Game.s.exp_total, money: Game.s.money, stamina: Game.s.stamina, step: q.step, aff: Game.affection() };
 Game.applyDelta(parsed.state, 'llm');
 ok(Game.s.exp_total === before.exp + 25, 'exp applied');
 ok(Game.s.money === before.money + 40, 'money applied');
 ok(Game.s.stamina === before.stamina - 2, 'stamina applied');
+ok(Game.affection() === before.aff + 5, 'affection applied via reducer');
+ok(Game.mood() === 'happy', 'mood applied via reducer');
 ok(Game.countItem('you', 'honey') === 1, 'item applied');
 ok(Quests.active().step === before.step + 1, 'quest step advanced via reducer');
 
 console.log('# hostile / garbage deltas');
 const moneyBefore = Game.s.money;
-Game.applyDelta({ stamina_delta: -1e9, money_delta: 1e9, exp_delta: -1e9 }, 'llm');
+const affBeforeDelta = Game.affection();
+Game.applyDelta({ stamina_delta: -1e9, money_delta: 1e9, exp_delta: -1e9, affection_delta: 9999, mood: 'berserk' }, 'llm');
 ok(Game.s.money <= moneyBefore + 2000 && Game.s.stamina >= 0 && Game.s.exp_total >= 0,
    'deltas clamped, nothing breaks');
+ok(Game.affection() <= 55 && Game.mood() === 'happy', 'hostile affection clamped, invalid mood ignored');
+Game.applyDelta({ affection_delta: '10', mood: null }, 'llm');
+ok(Game.affection() === 55, 'string affection_delta refused in applyDelta');
+Game.applyDelta({ affection_delta: true }, 'llm');
+ok(Game.affection() === 55, 'boolean affection_delta refused in applyDelta');
 Game.applyDelta('nonsense'); Game.applyDelta(null);
 ok(true, 'garbage input survives');
 
