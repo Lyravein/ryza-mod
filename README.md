@@ -90,7 +90,7 @@ the provider immediately and create a replacement.
 Structural tables (JSON, atlas, SVG) live in `web/assets/` and are versioned with the client. Large binaries (raster, audio, skeleton) are excluded from version control and restored before a full session or packaged build:
 
 ```powershell
-python scripts/restore_media.py path\to\RyzaChat-1.2.24.apk
+python scripts/restore_media.py path\to\RyzaChat-1.2.25.apk
 python scripts/restore_media.py path\to\win-unpacked\resources\web
 ```
 

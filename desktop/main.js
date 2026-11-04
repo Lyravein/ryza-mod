@@ -85,7 +85,7 @@ async function proxyRequest(request, targetUrl) {
   if (!proxyTargetAllowed(targetUrl)) {
     return jsonError(400, 'proxy target refused: use https, or http on a private host. A bare hostname is not enough, use the MagicDNS name (box.tailnet-name.ts.net)');
   }
-  const headers = { 'User-Agent': 'RyzaChat/1.2.24' };
+  const headers = { 'User-Agent': 'RyzaChat/1.2.25' };
   const ct = request.headers.get('content-type');
   const auth = request.headers.get('authorization');
   const apiKey = request.headers.get('api-key');
