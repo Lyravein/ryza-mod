@@ -231,8 +231,14 @@ for (const f of ['util.js', 'config.js', 'i18n.js', 'api.js', 'providers.js', 't
        document.getElementById('hud-stamina').innerHTML === '',
        'HUD stamina chip rendered after boot');
     const lvEl = document.getElementById('hud-level');
-    ok(!!lvEl && lvEl.textContent.indexOf('❤0') >= 0 && lvEl.textContent.indexOf('Calm') >= 0,
-       'HUD level pill renders affection heart and localized mood text');
+    ok(!!lvEl && lvEl.textContent === 'Lv1',
+       'HUD level pill renders adventurer level (Lv1)');
+    const affN = document.getElementById('log-aff-n');
+    ok(!!affN && affN.textContent === '0',
+       'companion badge renders initial affection count (0)');
+    const moodBadge = document.getElementById('log-mood-badge');
+    ok(!!moodBadge && moodBadge.textContent === 'Calm',
+       'companion badge renders initial localized mood text (Calm)');
     const ddEl = document.getElementById('drawer-day');
     ok(!!ddEl && ddEl.textContent.indexOf('Acquaintance') >= 0,
        'drawer-day renders companion day and localized relationship tier');
@@ -254,10 +260,12 @@ for (const f of ['util.js', 'config.js', 'i18n.js', 'api.js', 'providers.js', 't
       sandbox.App._relocalize();
       const curLv = document.getElementById('hud-level').textContent;
       const curDd = document.getElementById('drawer-day').textContent;
+      const curMood = document.getElementById('log-mood-badge').textContent;
       const moodExpected = sandbox.I18n.t('mood.normal');
       const tierExpected = sandbox.I18n.t('aff.tier.acquaintance');
-      ok(curLv.indexOf(moodExpected) >= 0 && curLv.indexOf('mood.') === -1,
-         lg + ': HUD renders localized mood (' + moodExpected + ')');
+      ok(curLv === 'Lv1', lg + ': HUD renders adventurer level (Lv1)');
+      ok(curMood === moodExpected && curMood.indexOf('mood.') === -1,
+         lg + ': companion badge renders localized mood (' + moodExpected + ')');
       ok(curDd.indexOf(tierExpected) >= 0 && curDd.indexOf('aff.tier.') === -1,
          lg + ': drawer renders localized tier (' + tierExpected + ')');
     });

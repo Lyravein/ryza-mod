@@ -854,6 +854,14 @@
       if (logHead) logHead.onclick = function () {
         document.getElementById('sheet-mode').classList.toggle('hidden');
       };
+      var compBadge = document.getElementById('log-companion-badge');
+      if (compBadge) {
+        compBadge.onclick = function (e) {
+          if (e && e.stopPropagation) e.stopPropagation();
+          App.renderStatus();
+          document.getElementById('sheet-status').classList.remove('hidden');
+        };
+      }
       ['hud-stamina', 'hud-money', 'hud-level'].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.onclick = function () { App.renderStatus(); document.getElementById('sheet-status').classList.remove('hidden'); };
@@ -1278,11 +1286,15 @@
       if (m) m.textContent = Game.cheat() ? '∞'
         : String(Game.s.money).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
       var lv = document.getElementById('hud-level');
-      if (lv) {
-        var aff = Game.affection();
+      if (lv) lv.textContent = 'Lv' + Game.level();
+      var affN = document.getElementById('log-aff-n');
+      if (affN) affN.textContent = String(Game.affection());
+      var moodBadge = document.getElementById('log-mood-badge');
+      if (moodBadge) {
         var mood = Game.mood();
         var mLabel = I18n.t('mood.' + mood) || mood;
-        lv.textContent = 'Lv' + Game.level() + ' · ❤' + aff + ' ' + mLabel;
+        moodBadge.textContent = mLabel;
+        moodBadge.setAttribute('data-mood', mood);
       }
       App._dailyBadge();
     },

@@ -48,6 +48,7 @@ const JS_OWNED = new Set([
   'drawer-day',        // I18n.tf('drawer.days', …)
   'log-name',          // I18n.tc('chara.ryza', …)
   'log-sub',           // I18n.t of the mode subtitle
+  'log-mood-badge',    // I18n.t('mood.' + mood)
   'voice-pill-label',  // I18n.t of the voice/text mode label
   'btn-tod-label',     // World.todLabel -> I18n.t('tod.' + tod)
   'btn-posture',       // glyph, redrawn by the posture logic
